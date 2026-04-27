@@ -298,4 +298,245 @@ std::string buildBadgeSvg(const User& u, const StatsCache& sc, const std::string
 
 
 // --- BACKROUND: Stats refresh loop (every 10 minutes) ---
-// TODO add statsRefreshLoop
+void statsRefreshLoop() {
+    while (true) {
+        std::this_thread::sleep_for(std::chrono::minutes(10));
+        std::cout << "[Refresh] Updating stats cache...\n";
+
+        // Get all users
+        sqlite3_stmt* stmt;
+        sqlite3_prepare_v2(db, "SELECT user_id, username FROM users", -1, &stmt, nullptr);
+
+        while(sqlite3_step(stmt) == SQLITE_ROW) {
+            int uid = sqlite3_column_int(stmt, 0);
+            const char* p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            if (!p) continue;
+            std::string username(p);
+
+            //Fetch from GitHub
+            auto sc   = GitHubService::fetchUserStats(username);
+            auto acts = GitHubService::fetchActivity(username);
+
+            //Preserve existing hours coded
+            auto existing = UserService::getStats(db, uid);
+            if (existing) {
+                sc.hours_coded = existing->hours_coded;
+                sc.hours_this_week = existing->hours_this_week;
+                sc.streak_days = existing->streak_days;
+                sc.best_streak = existing->best_streak;
+                sc.commits_today = existing->commits_today;
+            }
+
+            UserService::upsertStats(db, uid, sc);
+
+            for(auto& a : acts)
+            UserService::insertActivity(db. uid, a);
+
+            std::cout << "[Refresh] Updated: " << username << "\n";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+}
+
+// --- MAIN ---
+int main() {
+    loadEnv();
+
+    // Open DB
+    const std::string DB_PATH - env("DB_PATH", "data/devpulse.sqlite");
+    if (sqlite3_open(DB_PATH.c_str(), &db) != SQLITE_OK) {
+        std::cerr << "[DB] Cannot open: " << sqlite3_errmsg(db) << "\n";
+        return 1;
+    }
+
+    initializeDatabase(db);
+
+    // Start background refresh thread
+    std::thread(statsRefreshLoop).detach();
+
+    crow::App<crow::CookieParser> app;
+
+    // CORS / Security middleware per response using addSecurityHeaders()
+
+    // STATIC FILES
+
+    CROW_ROUTE(app, "/web/<path>")([](const std::string& path) {
+        std::string full = "web/" + path;
+        std::string mime = "application/octet-stream";
+        auto dot = full.rfind('.');
+        if (dot != std::string::npos) {
+            std::string ext = full.substr(dot);
+            if (ext == ".css") mime = "text/css";
+            else if (ext == ".js") mime = "application/javascript";
+            else if (ext == ".png") mime = "image/png";
+            else if (ext == ".svg") mime = "image/svg+xml";
+            else if (ext == ".ico") mime = "image/x-icon";
+            else if (ext == ".woff2") mime = "font/woff2";
+        }
+
+
+        return serveFile(full, mime);
+
+    });
+
+    // PAGES
+
+    // --- INDEX PAGE ---
+    CROW_ROUTE(app, "/")([](const crow::request& req) {
+        auto res = serveFile("web/html/index.html")
+        addSecurityHeaders(res);
+        // Set CSRF cookie on every page load
+        std::string csrf = Security::generateToken(16);
+         res.add_header("Set-Cookie",
+            "dp_csrf=" + csrf + "; Path=/; Secure; SameSite=Lax; Max-Age=86400");
+            std::string body = res.body;
+            size_t pos = body.find("__CSRF__");
+            if (pos != std::string::npos) body.replace(pos, 8, csrf);
+            res.body = body;
+            return res;
+    });
+
+
+    // --- DASHBOARD PAGE ---
+    CROW_ROUTE(app, "/dashboard")([](const crow::request& req) {
+        auto uid = authenticate(req);
+        if (!uid) {
+            crow::response res(302);
+            res.add_header ("Location", "/");
+            return res;
+        }
+        auto res = serveFile("web/html/dashboard.html");
+        addSecurityHeaders(res);
+        return res;
+    });
+
+    
+    CROW_ROUTE(app, "/u/<string>")([](const crow::request& req, const std::string& username) {
+        if (!Security::isValidUsername(username))
+        return jsonError(400, "Invalid username");
+        auto user = UserService::findByUsername(db, Security::sanitize(username, 39));
+        if (!user || !user->is_public) return crow::response(404);
+        addSecurityHeader(res);
+        return res;
+    });
+
+
+    CROW_ROUTE(app, "/embed/<string>")([](const crow::request& req, const std::string& username) {
+        if (!Security::isValidUsername(username))
+        return crow::response(400);
+        auto res = serveFile("web/html/embed.html");
+        res.add_header("X-Frame-Options", "ALLOWALL");
+        res.add_header("Content-Security-Policy", "default-src 'self' 'unsafe-inline';");
+        return res;
+    });
+
+
+    // --- AUTH: GitHub OAuth ---
+      CROW_ROUTE(app, "/auth/github")([](const crow::request& req) {
+        crow::response res(302);
+        // State parameter prevents CSRF on OAuth callback
+        std::string state = Security::generateToken(16);
+        res.add_header("Set-Cookie",
+            "dp_oauth_state=" + state +
+            "; Path=/auth/github/callback; HttpOnly; Secure; SameSite=Lax; Max-Age=300");
+        res.add_header("Location",
+            GitHubService::oauthRedirectUrl(
+                env("GITHUB_CLIENT_ID"),
+                env("APP_URL", "http://localhost:8080"),
+                state));
+        return res;
+    });
+
+
+    CROW_ROUTE(app, "/auth/github.callback")([](const crow::request& req) {
+        crow::response fake_res(200);
+        auto params = req.url_params;
+        std::string code = params.get("code") ? params.get("code") : "";
+        std::string state = params.get("state") ? params.get("state") : "";
+
+        // Validate OAuth state cookie
+        std::string cookie = req.get_header_value("Cookie");
+        const std::string sk = "dp_oauth_state=";
+        auto sp = cookie.find(sk);
+        std::string stored_state;
+        if (sp != std::string::npos) {
+            auto se = cookie.find(';', sp);
+            stored_state = cookie.substr(sp + sk.size(), se == std::string::npos ? std::string::npos : se - sp - sk.size());
+
+        }
+
+        if (code.empty() || !Security::safeCompare(state, stored_state)) {
+            crow::response res(302);
+            res.add_header("Location", "/?error=oauth_failed");
+            return res;
+        }
+        
+        // Exxhange code for token
+        std::string access token = GitHubService::exchangeCode(code, env("GITHUB_CLIENT_ID"), env("GITHUB_CLIENT_SECRET"));
+        if (access_token.empty()) {
+            croww::response res(302);
+            res.add_header("Location", "/?error=token_failed");
+            return res;
+        }
+        
+        // Fetch user from GitHub
+        auto gh_user = GitHubService::fetchAuthUser(access_token);
+        if (!gh_user) {
+            crow::response res(302);
+            res.add_header("Location", "/?error-user_failed");
+            return res;
+        }
+
+        // Upsert in DB
+        int uid = UserService::upsertUser(db, *gh_user);
+        if (uid <= 0) {
+            crow::response res(302);
+            res.add_header("Location", "/?error=db_failed");
+            return res;
+        }
+
+        // Kick off initial stats fetch in. background
+        std::string uname = gh_user->username;
+        std::thread([uname, uid]() {
+            auto sc = GitHubService::fetchUserStats(uname, "");
+            auto acts = GitHubService::fetchActivity(uname);
+            UserService::upsertStats(db, uid, sc);
+            for (auto& a : acts) UserService::insertActivity(db, uid, a);
+        }).detach();
+
+        // Create session
+        std::string ip_hash = Security::sha256(
+            req.get_header_value("X-Forwarded-For").empty()
+            ? req.remote_ip_address
+            : req.get_header_value("X-Forwarded_For")).substr(0, 16);
+            std::string token = UserService::createSession(db, uid, ip_hash);
+
+            crow::response res(302);
+            setSessionCookie(res, token);
+             res.add_header("Set-Cookie",
+            "dp_oauth_state=; Path=/; HttpOnly; Max-Age=0");
+        res.add_header("Location", "/dashboard");
+        return res;
+            
+    });
+
+
+    CROW_ROUTE(app, "/auth/logout").methods("POST"_method)
+    ([](const crow::request& req) {
+        if (!csrfValid(req)) return jsonError(403, "Invalid CSRF");
+        std::string tok = getSessionToken(req);
+        if (!tok.empty()) UserService::deleteSession(db, tok);
+        crow::response res(302);
+        clearSessionCookie(res);
+        res.add_header("Location", "/");
+        return res;
+    });
+
+
+    // --- API: /api/me - current user ---
+    // TODO add current user route 
+   
+
+
+}
