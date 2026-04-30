@@ -535,8 +535,336 @@ int main() {
 
 
     // --- API: /api/me - current user ---
-    // TODO add current user route 
-   
+    CROW_ROUTE(app, "/api/me")([](const crow::request& req) {
+        auto uid = authenticate(req);
+        if (!uid) return jsonError(401, "Unauthorized");
 
+        // Find user by ID
+        sqlite3_stmt* s;
+        sqlite3_prepare_v2(db, "SELECT username FROM users WHERE user_id=?", -1, &s, nullptr);
+        sqlite3_bind_int(s, 1, *uid);
+        std::string uname;
+        if (sqlite3_step(s) == SQLITE_ROW) {
+            const char* p = reinterpret_cast<const char*>(sqlite3_column_text(s, 0));
+            if (p) uname = p;
+        }
+        sqlite3_finalize(s);
+
+        auto profile = buildProfileJson(uname);
+        if (!profile) {
+            auto user = UserService::findByUsername(db, uname);
+            if (!user) return jsonError(404, "User not found");
+            return jsonOk({{"user", {
+                {"username", user->username},
+                {"display_name", user->display_name},
+                {"avatar_url", user->avatar_url},
+                {"bio", user->bio},
+                {"theme", user->theme},
+                {"public", user->public}
+            }}});
+        }
+        return jsonOk(*profile);
+    });
+
+
+    CROW_ROUTE(app, "/api/me/theme").methods("PATCH"_method)([](const crow::request& req) {
+        if(!csrfValid(req)) return jsonError(403, "Invalid CSRF");
+        auto uid = authenticate(req);
+        if (!uid) return jsonError(401, "Unauthorized");
+        try {
+            auto body = json::parse(req.body);
+            std::string theme = body..value("theme", "dark");
+            UserService::uptadeTheme(db, *uid, theme);
+            return jsonOk({{"theme", theme}});
+        } catch (...) { return jsonError(400, "Invalid JSON"); }
+    });
+
+
+    CROW_ROUTE(app, "/api/me/public").methods("PATCH"_method)([](const crow::request& req) {
+        if (!csrdValid(req)) return jsonError(403, "Invalid CSRD");
+        auto uid = authenticate(req);
+        if (!uid) return jsonError(401, "Unauthorized");
+        try {
+            auto body = json::parse(req.body);
+            bool pub = body.value("public", true);
+            UserService::updatePublic(db, *uid, pub);
+            return jsonOk({{"public", pub}});
+        } catch (...) { return jsonError(400, "Invalid JSON"); }
+    });
+
+
+    // API: /api/profile/<username>
+     CROW_ROUTE(app, "/api/profile/<string>")([](const crow::request& req,
+                                                 const std::string& username) {
+        crow::response res(200);
+        if (rateLimited(req, res, 120, 60)) return res;
+        if (!Security::isValidUsername(username)) return jsonError(400, "Invalid username");
+ 
+        auto profile = buildProfileJson(Security::sanitize(username, 39));
+        if (!profile) return jsonError(404, "User not found or private");
+        return jsonOk(*profile);
+    });
+
+   
+     //  API: /api/stats/<username>
+    CROW_ROUTE(app, "/api/stats/<string>")([](const crow::request& req,
+                                               const std::string& username) {
+        crow::response res(200);
+        if (rateLimited(req, res, 120, 60)) return res;
+        if (!Security::isValidUsername(username)) return jsonError(400, "Invalid username");
+ 
+        auto user = UserService::findByUsername(db, Security::sanitize(username, 39));
+        if (!user || !user->is_public) return jsonError(404, "Not found");
+ 
+        auto sc = UserService::getStats(db, user->user_id);
+        if (!sc) return jsonOk({{"total_commits",0},{"streak_days",0},
+                                 {"repos_count",0},{"hours_coded",0.0}});
+ 
+        json langs = json::array();
+        try { langs = json::parse(sc->languages_json); } catch (...) {}
+ 
+        return jsonOk({
+            {"total_commits",    sc->total_commits},
+            {"streak_days",      sc->streak_days},
+            {"best_streak",      sc->best_streak},
+            {"repos_count",      sc->repos_count},
+            {"hours_coded",      sc->hours_coded},
+            {"commits_today",    sc->commits_today},
+            {"repos_this_month", sc->repos_this_month},
+            {"hours_this_week",  sc->hours_this_week},
+            {"top_language",     sc->top_language},
+            {"languages",        langs}
+        });
+    });
+ 
+
+    //  API: /api/activity/<username>
+    CROW_ROUTE(app, "/api/activity/<string>")([](const crow::request& req,
+                                                  const std::string& username) {
+        crow::response res(200);
+        if (rateLimited(req, res, 120, 60)) return res;
+        if (!Security::isValidUsername(username)) return jsonError(400, "Invalid username");
+ 
+        auto user = UserService::findByUsername(db, Security::sanitize(username, 39));
+        if (!user || !user->is_public) return jsonError(404, "Not found");
+ 
+        int limit = 10;
+        const char* lp = req.url_params.get("limit");
+        if (lp) limit = std::max(1, std::min(50, atoi(lp)));
+ 
+        auto acts = UserService::getActivity(db, user->user_id, limit);
+        json arr  = json::array();
+        for (auto& a : acts) arr.push_back({
+            {"repo",       a.repo},
+            {"message",    a.message},
+            {"language",   a.language},
+            {"commit_sha", a.commit_sha},
+            {"pushed_at",  a.pushed_at}
+        });
+        return jsonOk({{"activity", arr}});
+    });
+ 
+
+    //  API: /api/search?q=<query>
+    CROW_ROUTE(app, "/api/search")([](const crow::request& req) {
+        crow::response res(200);
+        if (rateLimited(req, res, 30, 60)) return res;
+ 
+        const char* qp = req.url_params.get("q");
+        if (!qp || std::string(qp).empty()) return jsonError(400, "Missing q");
+        std::string q = Security::sanitize(std::string(qp), 50);
+ 
+        auto users = UserService::searchUsers(db, q);
+        json arr   = json::array();
+        for (auto& u : users) arr.push_back({
+            {"username",     u.username},
+            {"display_name", u.display_name},
+            {"avatar_url",   u.avatar_url},
+            {"bio",          u.bio}
+        });
+        return jsonOk({{"users", arr}});
+    });
+ 
+
+    //  API: /api/viewers/<username> — live viewer count
+    CROW_ROUTE(app, "/api/viewers/<string>")([](const std::string& username) {
+        if (!Security::isValidUsername(username)) return jsonError(400, "Invalid");
+        int count = WSManager::instance().viewerCount(username);
+        return jsonOk({{"viewers", count}});
+    });
+ 
+    
+    //  BADGE: /badge/<username> — SVG for GitHub README embeds
+    CROW_ROUTE(app, "/badge/<string>")([](const crow::request& req,
+                                          const std::string& username) {
+        crow::response res(200);
+        if (rateLimited(req, res, 200, 60)) return res;
+        if (!Security::isValidUsername(username)) return crow::response(400);
+ 
+        auto user = UserService::findByUsername(db, Security::sanitize(username, 39));
+        if (!user) return crow::response(404);
+ 
+        StatsCache sc;
+        auto cached = UserService::getStats(db, user->user_id);
+        if (cached) sc = *cached;
+ 
+        std::string svg = buildBadgeSvg(*user, sc, env("APP_URL","https://devpulse.fly.dev"));
+        crow::response badge_res(svg);
+        badge_res.add_header("Content-Type",  "image/svg+xml");
+        badge_res.add_header("Cache-Control", "no-cache, max-age=300");
+        badge_res.add_header("ETag", std::to_string(sc.last_updated));
+        return badge_res;
+    });
+    
+    
+    //  WEBHOOK: /webhook/<username>/github
+    //  Called by GitHub on every push. HMAC verified.
+    CROW_ROUTE(app, "/webhook/<string>/github").methods("POST"_method)([](const crow::request& req, const std::string& username) {
+        crow::response res(200);
+        if (rateLimited(req, res, 10, 10)) return res;
+        if (!Security::isValidUsername(username)) return crow::response(400);
+
+        auto user = UserService::findByUsername(db, Security::sanitize(username, 39));
+        if (!user) return crow::response(404);
+
+        std::string sig = req.get_header_value("X-Hub-Signature-256");
+        if (sig.empty()) return crow::response(401);
+
+        std::string expected = Security::hmacSha256(user->webhook_secret, req.body);
+        if(!Security::safeCompare(sig, expected)) {
+            std::cerr << "[Webhook] HMAC mismatch for " << username << "\n";
+            return crow::response(401);
+        }
+
+        try {
+            auto body = json::parse(req.body);
+            if (!body.contains("commits") || !body.contains["commits"].is_array())
+            return crow:: response(204);
+
+            std::string repo = body["repository"].value("full_name", "");
+            auto& commits = body["commits"];
+            int count = (int)commits.size();
+            std::string message = commits[0].value("message", "");
+            message = message.substr(0, message.find('\n'));
+            message = Security::sanitize(message, 200);
+            repo = Security::sanitize(repo, 200);
+
+            ActivityItem a;
+            a.repo = repo;
+            a.message = message;
+            a.pushed_at = Security::nowSec();
+            UserService::insertActivity(db, user->user_id, a);
+
+            auto sc = UserService::getStats(db, user->user_id);
+            if(sc) {
+                sc->commits_today +=count;
+                sc->total += count;
+                sc->last_updated = Security::nowSec();
+                UserService::upsertStats(db, user->user_id, *sc);
+            }
+
+            broadcastCommit(username, repo, message, a.language, count);
+            if (sc) broadcastStatsUpdate(username, sc->total_commits, sc->streak_days);
+
+               std::cout << "[Webhook] " << username << " pushed " << count
+                      << " commit(s) to " << repo << "\n";
+
+        } catch (count std::exeption& e) {
+            std::cerr << "[Webhook] parse error: " << e.what() << "\n";
+            return crow::response(400);
+        }
+
+        return crow::response(200, "Success");
+
+
+    });
+
+
+     //  WEBSOCKET: /ws/<username>
+    //  Viewers connect here to receive live updates
+    CROW_WEBSOCKET_ROUTE(app, "/ws/<string>")
+    .onopen([](crow::websocket::connection& conn, const std::string& username) {
+        if (!Security::isValidUsername(username)) {
+            conn.close("Invalid username");
+            return;
+        }
+        WSManager::instance().add(username, &conn);
+ 
+        // Send initial stats snapshot
+        auto user = UserService::findByUsername(db, username);
+        if (user) {
+            auto sc   = UserService::getStats(db, user->user_id);
+            auto acts = UserService::getActivity(db, user->user_id, 5);
+ 
+            json snapshot;
+            snapshot["type"] = "snapshot";
+            if (sc) snapshot["stats"] = {
+                {"total_commits", sc->total_commits},
+                {"streak_days",   sc->streak_days},
+                {"repos_count",   sc->repos_count},
+                {"hours_coded",   sc->hours_coded}
+            };
+            json act_arr = json::array();
+            for (auto& a : acts) act_arr.push_back({
+                {"repo",      a.repo},
+                {"message",   a.message},
+                {"pushed_at", a.pushed_at}
+            });
+            snapshot["activity"] = act_arr;
+            try { conn.send_text(snapshot.dump()); } catch(...) {}
+        }
+        std::cout << "[WS] Connected: " << username << " ("
+                  << WSManager::instance().viewerCount(username) << " viewers)\n";
+    })
+    .onclose([](crow::websocket::connection& conn,
+                const std::string& reason,
+                const std::string& username) {
+        WSManager::instance().remove(username, &conn);
+        std::cout << "[WS] Disconnected: " << username << "\n";
+    })
+    .onmessage([](crow::websocket::connection& conn,
+                  const std::string& data,
+                  bool is_binary,
+                  const std::string& username) {
+        if (is_binary) return;
+        if (data == "ping") {
+            try { conn.send_text("pong"); } catch(...) {}
+            return;
+        }
+        // Client can request a fresh stats push
+        if (data == "refresh") {
+            auto user = UserService::findByUsername(db, username);
+            if (!user) return;
+            auto sc = UserService::getStats(db, user->user_id);
+            if (!sc) return;
+            try {
+                conn.send_text(json({
+                    {"type",          "stats_update"},
+                    {"total_commits", sc->total_commits},
+                    {"streak_days",   sc->streak_days},
+                    {"repos_count",   sc->repos_count},
+                    {"hours_coded",   sc->hours_coded}
+                }).dump());
+            } catch(...) {}
+        }
+    });
+
+
+    // --- 404 Fallback ---
+    CROW_CATHALL_ROUTE(app)([](const crow::response& req) {
+        auto res = serveFile("web/html/404.html");
+        res.code = 404;
+        addSecurityHeaders(res);
+        return res;
+    });
+
+
+    // --- RUN ---
+    int port = std::stoi(env("PORT", "8080"));
+    std::cout << "[DEVPULSE] Starting on port " << port << "\n";
+    app.bindaddr("0.0.0.0").port(port).multithreaded().run();
+
+    sqlite3_close(db);
+    return 0;
 
 }
