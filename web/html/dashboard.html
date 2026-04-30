@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard – DevPulse</title>
+  <link rel="stylesheet" href="/web/css/main.css">
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <!-- Page loader -->
+  <div id="page-loader">
+    <div class="spinner"></div>
+  </div>
+
+  <div class="dash-layout">
+
+    <!-- ── Header ── -->
+    <header class="dash-header">
+      <div class="dash-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect width="24" height="24" rx="6" fill="#6366f1"/>
+          <path d="M6 18V10M10 18V6M14 18V12M18 18V8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        DevPulse
+      </div>
+
+      <div id="ws-status" style="font-size:.78rem;display:flex;align-items:center;gap:.35rem;color:var(--text-3)">
+        <span class="live-dot"></span> Live
+      </div>
+
+      <div class="dash-user">
+        <img id="dash-avatar" class="avatar" width="28" height="28" src="" alt="avatar" style="width:28px;height:28px">
+        <a id="dash-uname-link" class="username" href="#" style="color:var(--text-2);font-size:.8rem;text-decoration:none"></a>
+        <button id="logout-btn" class="btn btn-ghost btn-sm" style="color:var(--text-3)">Sign out</button>
+      </div>
+    </header>
+
+    <!-- ── Main ── -->
+    <main class="dash-main">
+
+      <!-- Greeting -->
+      <div class="dash-greeting">
+        <h1 id="greeting-name">Loading…</h1>
+        <p class="sub" id="greeting-sub"></p>
+      </div>
+
+      <!-- ── Stat cards ── -->
+      <div class="stats-grid">
+        <div class="stat-card accent-indigo">
+          <div class="stat-label">Total commits</div>
+          <div class="stat-value count-anim" id="commits-val">—</div>
+          <div class="stat-sub" id="commits-sub"></div>
+        </div>
+        <div class="stat-card accent-green">
+          <div class="stat-label">Current streak</div>
+          <div class="stat-value count-anim" id="streak-val">—</div>
+          <div class="stat-sub" id="streak-sub"></div>
+        </div>
+        <div class="stat-card accent-blue">
+          <div class="stat-label">Repositories</div>
+          <div class="stat-value count-anim" id="repos-val">—</div>
+          <div class="stat-sub" id="repos-sub"></div>
+        </div>
+        <div class="stat-card accent-yellow">
+          <div class="stat-label">Hours coded</div>
+          <div class="stat-value count-anim" id="hours-val">—</div>
+          <div class="stat-sub" id="hours-sub"></div>
+        </div>
+      </div>
+
+      <!-- ── Activity + Languages ── -->
+      <div class="main-cols">
+        <!-- Activity -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent activity</span>
+            <span class="pill pill-green"><span class="live-dot" style="width:6px;height:6px"></span> Live</span>
+          </div>
+          <div class="activity-list" id="activity-feed">
+            <div style="display:flex;flex-direction:column;gap:1rem;padding:1rem 0">
+              <div class="skeleton" style="height:14px;width:70%"></div>
+              <div class="skeleton" style="height:14px;width:90%"></div>
+              <div class="skeleton" style="height:14px;width:60%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Languages -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Languages</span>
+          </div>
+          <div id="lang-bars">
+            <div style="display:flex;flex-direction:column;gap:1rem">
+              <div class="skeleton" style="height:14px"></div>
+              <div class="skeleton" style="height:14px;width:80%"></div>
+              <div class="skeleton" style="height:14px;width:60%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Share / Embed ── -->
+      <div class="card section-share" style="margin-bottom:1.25rem">
+        <div class="card-header">
+          <span class="card-title">Share &amp; embed</span>
+        </div>
+        <div class="share-grid">
+          <div class="share-row">
+            <label>Profile URL</label>
+            <div class="copy-row">
+              <input class="copy-input" id="share-profile" readonly>
+              <button class="btn btn-outline btn-sm" data-copy="share-profile">Copy</button>
+            </div>
+          </div>
+          <div class="share-row">
+            <label>README badge (Markdown)</label>
+            <div class="copy-row">
+              <input class="copy-input" id="share-readme" readonly>
+              <button class="btn btn-outline btn-sm" data-copy="share-readme">Copy</button>
+            </div>
+          </div>
+          <div class="share-row">
+            <label>Badge image URL</label>
+            <div class="copy-row">
+              <input class="copy-input" id="share-badge" readonly>
+              <button class="btn btn-outline btn-sm" data-copy="share-badge">Copy</button>
+            </div>
+          </div>
+          <div class="share-row">
+            <label>Embed iframe URL</label>
+            <div class="copy-row">
+              <input class="copy-input" id="share-embed" readonly>
+              <button class="btn btn-outline btn-sm" data-copy="share-embed">Copy</button>
+            </div>
+          </div>
+          <div class="share-row">
+            <label>GitHub webhook URL <span class="pill" style="margin-left:.3rem;font-size:.7rem">HMAC verified</span></label>
+            <div class="copy-row">
+              <input class="copy-input" id="share-webhook" readonly>
+              <button class="btn btn-outline btn-sm" data-copy="share-webhook">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Settings ── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Settings</span>
+        </div>
+        <div class="settings-grid">
+          <div class="setting-item">
+            <div>
+              <div class="setting-name">Dark theme</div>
+              <div class="setting-desc">Toggle light / dark mode</div>
+            </div>
+            <div class="toggle on" id="theme-toggle" role="switch" aria-label="Toggle theme" tabindex="0"></div>
+          </div>
+          <div class="setting-item">
+            <div>
+              <div class="setting-name">Public profile</div>
+              <div class="setting-desc">Allow anyone to view your stats</div>
+            </div>
+            <div class="toggle" id="public-toggle" role="switch" aria-label="Toggle public" tabindex="0"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
+          <button id="logout-btn-2" class="btn btn-danger btn-sm">Sign out of DevPulse</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="/web/js/api.js"></script>
+  <script src="/web/js/dashboard.js"></script>
+  <script>
+    // Wire second logout button
+    document.getElementById('logout-btn-2')?.addEventListener('click', async () => {
+      try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+      location.href = '/';
+    });
+    // Keyboard toggle support
+    document.querySelectorAll('.toggle').forEach(t => {
+      t.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }});
+    });
+  </script>
+</body>
+</html>
