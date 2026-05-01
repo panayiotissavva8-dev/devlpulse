@@ -1,55 +1,33 @@
-# fly.toml – DevPulse
-# Docs: https://fly.io/docs/reference/configuration/
-
-app            = "devpulse"       # fly apps create devpulse
-primary_region = "ams"            # closest Fly region to Cyprus
+app = 'devpulse'
+primary_region = 'ams'
 
 [build]
-  # Uses the Dockerfile at the repo root automatically
 
-# ── Non-secret environment variables ─────────────────────────────────────────
 [env]
-  PORT     = "8080"
-  APP_URL  = "https://devpulse.fly.dev"  # update after fly deploy
-  APP_ENV  = "production"
-  # SQLite file lives on the persistent volume mounted at /data
-  DB_PATH  = "/data/devpulse.sqlite"
+  APP_ENV = 'production'
+  APP_URL = 'https://devpulse.fly.dev'
+  DB_PATH = '/data/devpulse.sqlite'
+  PORT    = '8080'
 
-# ── HTTP service ──────────────────────────────────────────────────────────────
-[[services]]
-  protocol      = "tcp"
-  internal_port = 8080
-
-  [[services.ports]]
-    port     = 80
-    handlers = ["http"]
-
-  [[services.ports]]
-    port     = 443
-    handlers = ["tls", "http"]
-
-  [services.concurrency]
-    type       = "requests"
-    hard_limit = 250
-    soft_limit = 200
-
-  # Fly restarts the VM if /health stops responding
-  [[services.http_checks]]
-    interval        = "15s"
-    timeout         = "5s"
-    grace_period    = "15s"
-    method          = "GET"
-    path            = "/health"
-    protocol        = "http"
-    tls_skip_verify = false
-
-# ── Persistent volume – keeps the SQLite database across deploys ──────────────
-# Create once with: fly volumes create devpulse_data --size 1 --region ams
 [[mounts]]
-  source      = "devpulse_data"
-  destination = "/data"
+  source      = 'devpulse_data'
+  destination = '/data'
 
-# ── VM sizing ─────────────────────────────────────────────────────────────────
+[http_service]
+  internal_port       = 8080
+  force_https         = true
+  auto_stop_machines  = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes           = ['app']
+
+  [[http_service.checks]]
+    interval   = '15s'
+    timeout    = '5s'
+    grace_period = '20s'
+    method     = 'GET'
+    path       = '/'
+
 [[vm]]
-  size   = "shared-cpu-1x"
-  memory = "512mb"   # background refresh thread + WS connections need a bit more
+  size   = 'shared-cpu-1x'
+  memory = '512mb'
