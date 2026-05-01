@@ -835,12 +835,27 @@ int main() {
             UserService::insertActivity(db, user->user_id, a);
 
             auto sc = UserService::getStats(db, user->user_id);
+
+
+              // Recalculate streak based on today having activity
+int today = (int)(Security::nowSec() / 86400);
+int last  = sc->last_updated > 0 ? (int)(sc->last_updated / 86400) : 0;
+if (today > last) {
+    sc->streak_days += 1;
+    if (sc->streak_days > sc->best_streak)
+        sc->best_streak = sc->streak_days;
+    UserService::upsertStats(db, user->user_id, *sc);
+}
+
             if (sc) {
-                sc->commits_today += count;
-                sc->total_commits += count;
-                sc->last_updated   = Security::nowSec();
-                UserService::upsertStats(db, user->user_id, *sc);
-            }
+    sc->commits_today   += count;
+    sc->total_commits   += count;
+    sc->hours_coded     += count * 0.25;   // ~15 min per commit
+    sc->hours_this_week += count * 0.25;
+    sc->last_updated     = Security::nowSec();
+    UserService::upsertStats(db, user->user_id, *sc);
+}
+
 
             broadcastCommit(username, repo, message, a.language, count);
             if (sc) broadcastStatsUpdate(username, sc->total_commits, sc->streak_days);

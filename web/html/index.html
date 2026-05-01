@@ -7,138 +7,839 @@
   <meta name="description" content="DevPulse – live developer stats powered by GitHub. Track commits, streaks, and coding hours in real time.">
   <title>DevPulse – Live Developer Stats</title>
   <link rel="stylesheet" href="/web/css/main.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700;800&display=swap" rel="stylesheet">
   <style>
-    /* Error banner positioning */
-    .error-top { position: fixed; top: 4.5rem; left: 50%; transform: translateX(-50%); z-index: 200; min-width: 280px; max-width: 480px; }
+    :root {
+      --bg:       #0a0c10;
+      --bg-1:     #111318;
+      --bg-2:     #1a1d24;
+      --border:   #23272f;
+      --accent:   #6366f1;
+      --accent-2: #3b82f6;
+      --green:    #3fb950;
+      --text:     #e8edf5;
+      --text-2:   #7c8491;
+      --text-3:   #3d4149;
+      --mono:     'Space Mono', monospace;
+      --sans:     'DM Sans', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Grid background ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99,102,241,.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    .landing-nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 2.5rem;
+      background: rgba(10,12,16,.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .landing-logo {
+      display: flex; align-items: center; gap: .6rem;
+      font-family: var(--mono);
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      letter-spacing: -.02em;
+    }
+
+    .nav-links { display: flex; align-items: center; gap: .5rem; }
+
+    .nav-link {
+      padding: .4rem .9rem;
+      font-size: .82rem; font-weight: 500;
+      color: var(--text-2);
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+      text-decoration: none;
+    }
+    .nav-link:hover { color: var(--text); background: var(--bg-2); text-decoration: none; }
+
+    .btn-nav-cta {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .42rem 1rem;
+      background: var(--accent);
+      color: #fff;
+      font-size: .82rem; font-weight: 700;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: background .15s, transform .1s;
+      border: 1px solid rgba(255,255,255,.1);
+    }
+    .btn-nav-cta:hover { background: #5254cc; transform: translateY(-1px); text-decoration: none; }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8rem 2rem 5rem;
+      text-align: center;
+    }
+
+    /* Glow orb */
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 15%; left: 50%;
+      transform: translateX(-50%);
+      width: 700px; height: 400px;
+      background: radial-gradient(ellipse, rgba(99,102,241,.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .3rem .85rem;
+      background: rgba(99,102,241,.1);
+      border: 1px solid rgba(99,102,241,.25);
+      border-radius: 99px;
+      font-family: var(--mono);
+      font-size: .72rem; color: #8b8ff5;
+      letter-spacing: .08em; text-transform: uppercase;
+      margin-bottom: 2rem;
+      animation: fade-up .6s ease both;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.8rem, 7vw, 5.5rem);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -.04em;
+      margin-bottom: 1.5rem;
+      animation: fade-up .6s .1s ease both;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, #6366f1, #3b82f6, #8b5cf6);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(.95rem, 2vw, 1.15rem);
+      color: var(--text-2);
+      max-width: 520px;
+      line-height: 1.7;
+      margin: 0 auto 2.5rem;
+      animation: fade-up .6s .2s ease both;
+    }
+
+    .hero-cta-group {
+      display: flex; gap: .875rem; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 4.5rem;
+      animation: fade-up .6s .3s ease both;
+    }
+
+    .btn-hero-primary {
+      display: inline-flex; align-items: center; gap: .6rem;
+      padding: .75rem 1.75rem;
+      background: var(--text);
+      color: #0a0c10;
+      font-size: .95rem; font-weight: 800;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: transform .15s, box-shadow .15s;
+      letter-spacing: -.01em;
+    }
+    .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,.5); text-decoration: none; }
+
+    .btn-hero-secondary {
+      display: inline-flex; align-items: center; gap: .5rem;
+      padding: .75rem 1.5rem;
+      color: var(--text-2);
+      font-size: .95rem; font-weight: 500;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-decoration: none;
+      transition: color .15s, border-color .15s, background .15s;
+    }
+    .btn-hero-secondary:hover { color: var(--text); border-color: #3d4149; background: var(--bg-1); text-decoration: none; }
+
+    /* ── STATS TICKER ── */
+    .stats-showcase {
+      position: relative; z-index: 1;
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      max-width: 760px; width: 100%;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      animation: fade-up .6s .4s ease both;
+    }
+
+    .showcase-cell {
+      background: var(--bg-1);
+      padding: 1.5rem 1.25rem;
+      text-align: left;
+    }
+
+    .showcase-cell .sc-num {
+      font-family: var(--mono);
+      font-size: 1.8rem; font-weight: 700;
+      line-height: 1;
+      margin-bottom: .35rem;
+    }
+
+    .showcase-cell .sc-label {
+      font-size: .72rem; font-weight: 600;
+      text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text-3);
+    }
+
+    .sc-commits { color: #6366f1; }
+    .sc-streak  { color: #3fb950; }
+    .sc-repos   { color: #3b82f6; }
+    .sc-hours   { color: #e3b341; }
+
+    /* Live ticker dot in first cell */
+    .showcase-cell:first-child { position: relative; }
+    .sc-live {
+      position: absolute; top: .75rem; right: .75rem;
+      display: flex; align-items: center; gap: .3rem;
+      font-size: .65rem; color: var(--text-3);
+      font-family: var(--mono);
+    }
+
+    /* ── SECTION: WHAT IS DEVPULSE ── */
+    .section-intro {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: 7rem 2rem 0;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 5rem; align-items: center;
+    }
+    @media (max-width: 800px) { .section-intro { grid-template-columns: 1fr; gap: 2.5rem; } }
+
+    .intro-label {
+      font-family: var(--mono);
+      font-size: .7rem; color: var(--accent);
+      letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: .75rem;
+    }
+
+    .intro-heading {
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+      font-weight: 800; line-height: 1.15;
+      letter-spacing: -.03em;
+      margin-bottom: 1.25rem;
+    }
+
+    .intro-body {
+      color: var(--text-2);
+      font-size: .95rem; line-height: 1.8;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Terminal mockup */
+    .terminal {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      font-family: var(--mono);
+      font-size: .8rem;
+    }
+
+    .terminal-bar {
+      display: flex; align-items: center; gap: .4rem;
+      padding: .75rem 1rem;
+      background: var(--bg-2);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .t-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .t-red    { background: #ff5f57; }
+    .t-yellow { background: #febc2e; }
+    .t-green  { background: #28c840; }
+
+    .terminal-body { padding: 1.25rem; line-height: 2; }
+    .t-dim  { color: var(--text-3); }
+    .t-acc  { color: #6366f1; }
+    .t-grn  { color: #3fb950; }
+    .t-ylw  { color: #e3b341; }
+    .t-wht  { color: var(--text); }
+    .t-red2 { color: #f85149; }
+
+    /* ── FEATURES ── */
+    .section-features {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: 7rem 2rem;
+    }
+
+    .section-label {
+      font-family: var(--mono);
+      font-size: .7rem; color: var(--accent);
+      letter-spacing: .1em; text-transform: uppercase;
+      margin-bottom: .75rem; text-align: center;
+    }
+
+    .section-title {
+      font-size: clamp(1.5rem, 3vw, 2.2rem);
+      font-weight: 800; line-height: 1.15;
+      letter-spacing: -.03em;
+      text-align: center; margin-bottom: .6rem;
+    }
+
+    .section-sub {
+      text-align: center; color: var(--text-2);
+      font-size: .95rem; margin-bottom: 3.5rem;
+    }
+
+    .features-bento {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: auto auto;
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 700px) { .features-bento { grid-template-columns: 1fr; } }
+
+    .bento-card {
+      background: var(--bg-1);
+      padding: 1.75rem;
+      transition: background .2s;
+    }
+    .bento-card:hover { background: var(--bg-2); }
+    .bento-card.wide { grid-column: span 2; }
+
+    .bento-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      background: rgba(99,102,241,.12);
+      border: 1px solid rgba(99,102,241,.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+      margin-bottom: 1.1rem;
+    }
+
+    .bento-card h3 {
+      font-size: .95rem; font-weight: 700;
+      margin-bottom: .5rem; letter-spacing: -.01em;
+    }
+    .bento-card p {
+      font-size: .84rem; color: var(--text-2); line-height: 1.65;
+    }
+
+    .bento-card.accent-card {
+      background: linear-gradient(135deg, rgba(99,102,241,.12), rgba(59,130,246,.06));
+      border-color: rgba(99,102,241,.2);
+    }
+
+    /* ── HOW IT WORKS ── */
+    .section-how {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: 0 2rem 7rem;
+    }
+
+    .steps {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 2rem; margin-top: 3.5rem;
+    }
+    @media (max-width: 700px) { .steps { grid-template-columns: 1fr; } }
+
+    .step {
+      display: flex; flex-direction: column; gap: .75rem;
+    }
+
+    .step-num {
+      font-family: var(--mono);
+      font-size: .7rem; color: var(--text-3);
+      letter-spacing: .1em;
+    }
+
+    .step-line {
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent) 0%, transparent 100%);
+      margin-bottom: .25rem;
+    }
+
+    .step h3 {
+      font-size: 1rem; font-weight: 700; letter-spacing: -.01em;
+    }
+    .step p { font-size: .875rem; color: var(--text-2); line-height: 1.65; }
+
+    /* ── DEMO PROFILE PREVIEW ── */
+    .section-demo {
+      position: relative; z-index: 1;
+      max-width: 1080px; margin: 0 auto;
+      padding: 0 2rem 7rem;
+    }
+
+    .demo-profile-card {
+      background: var(--bg-1);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .demo-profile-header {
+      background: linear-gradient(135deg, rgba(30,27,75,.8), rgba(30,58,138,.4));
+      padding: 2rem;
+      display: flex; align-items: center; gap: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .demo-avatar {
+      width: 64px; height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; flex-shrink: 0;
+      border: 2px solid rgba(99,102,241,.4);
+    }
+
+    .demo-profile-name { font-size: 1.15rem; font-weight: 700; }
+    .demo-profile-handle { font-family: var(--mono); font-size: .8rem; color: var(--text-2); margin-top: .2rem; }
+    .demo-profile-bio { font-size: .85rem; color: var(--text-2); margin-top: .4rem; }
+
+    .demo-stats-row {
+      display: grid; grid-template-columns: repeat(4,1fr);
+      gap: 1px; background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    @media (max-width: 600px) { .demo-stats-row { grid-template-columns: repeat(2,1fr); } }
+
+    .demo-stat-cell {
+      background: var(--bg-1);
+      padding: 1.1rem 1.25rem;
+    }
+    .demo-stat-val {
+      font-family: var(--mono);
+      font-size: 1.4rem; font-weight: 700; line-height: 1;
+      margin-bottom: .3rem;
+    }
+    .demo-stat-lbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-3); }
+
+    .demo-activity {
+      padding: 1.25rem 1.5rem;
+    }
+    .demo-activity-title {
+      font-size: .72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-3); margin-bottom: 1rem;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .demo-commit {
+      display: flex; gap: .75rem; align-items: flex-start;
+      padding: .65rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .84rem;
+    }
+    .demo-commit:last-child { border-bottom: none; }
+    .demo-commit-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-top: .35rem; flex-shrink: 0; }
+    .demo-commit-repo { font-family: var(--mono); font-size: .75rem; color: var(--text-3); }
+    .demo-commit-msg { color: var(--text); margin-top: .1rem; }
+    .demo-commit-time { margin-left: auto; font-size: .72rem; color: var(--text-3); white-space: nowrap; padding-left: .5rem; }
+
+    /* ── CTA BAND ── */
+    .cta-band {
+      position: relative; z-index: 1;
+      margin: 0 2rem 7rem;
+      max-width: 1080px;
+      margin-left: auto; margin-right: auto;
+      background: linear-gradient(135deg, rgba(99,102,241,.15), rgba(59,130,246,.08));
+      border: 1px solid rgba(99,102,241,.25);
+      border-radius: 20px;
+      padding: 4rem 3rem;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    .cta-band::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(99,102,241,.12), transparent);
+      pointer-events: none;
+    }
+
+    .cta-band h2 {
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      font-weight: 800; letter-spacing: -.04em;
+      margin-bottom: .75rem; position: relative;
+    }
+    .cta-band p { color: var(--text-2); margin-bottom: 2rem; position: relative; }
+
+    .cta-band .btn-hero-primary { position: relative; }
+
+    /* ── FOOTER ── */
+    .landing-footer {
+      position: relative; z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 2rem 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 1rem;
+    }
+
+    .footer-logo {
+      font-family: var(--mono); font-size: .85rem;
+      color: var(--text-3); font-weight: 700;
+    }
+
+    .footer-links { display: flex; gap: 1.5rem; }
+    .footer-link { font-size: .8rem; color: var(--text-3); text-decoration: none; transition: color .15s; }
+    .footer-link:hover { color: var(--text-2); }
+
+    .footer-copy { font-size: .78rem; color: var(--text-3); }
+
+    /* ── ANIMATIONS ── */
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .reveal {
+      opacity: 0; transform: translateY(24px);
+      transition: opacity .6s ease, transform .6s ease;
+    }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── LIVE DOT ── */
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green); display: inline-block;
+      box-shadow: 0 0 0 0 rgba(63,185,80,.7);
+      animation: pulse-dot 2s infinite;
+    }
+    @keyframes pulse-dot {
+      0%   { box-shadow: 0 0 0 0 rgba(63,185,80,.7); }
+      70%  { box-shadow: 0 0 0 5px rgba(63,185,80,0); }
+      100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+    }
+
+    /* ── ERROR BANNER ── */
+    .error-top { position: fixed; top: 4.5rem; left: 50%; transform: translateX(-50%); z-index: 200; }
+    .hidden { display: none !important; }
+    .error-banner {
+      background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3);
+      border-radius: 8px; padding: .75rem 1rem;
+      color: #f85149; font-size: .875rem;
+      display: flex; align-items: center; gap: .5rem;
+      min-width: 280px;
+    }
+
+    @media (max-width: 600px) {
+      .landing-nav { padding: .9rem 1.25rem; }
+      .hero { padding: 7rem 1.25rem 4rem; }
+      .stats-showcase { grid-template-columns: repeat(2,1fr); }
+      .cta-band { padding: 2.5rem 1.5rem; margin: 0 1rem 4rem; }
+    }
   </style>
 </head>
 <body>
-  <div id="toast-container"></div>
 
-  <!-- ── Error banner ── -->
   <div id="error-top" class="error-top hidden">
     <div class="error-banner">
-      <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span id="error-msg">Authentication failed. Please try again.</span>
     </div>
   </div>
 
-  <!-- ── Nav ── -->
+  <!-- NAV -->
   <nav class="landing-nav">
     <div class="landing-logo">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
         <rect width="24" height="24" rx="6" fill="#6366f1"/>
         <path d="M6 18V10M10 18V6M14 18V12M18 18V8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
       </svg>
-      DevPulse
+      devpulse
     </div>
-    <div style="display:flex;align-items:center;gap:.75rem">
-      <a href="#features" class="btn btn-ghost btn-sm">Features</a>
-      <a href="/auth/github" class="btn btn-primary btn-sm">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-        Sign in with GitHub
+    <div class="nav-links">
+      <a href="#features" class="nav-link">Features</a>
+      <a href="#how" class="nav-link">How it works</a>
+      <a href="/u/hackclub-demo" class="nav-link">Demo</a>
+      <a href="/auth/github" class="btn-nav-cta">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+        Sign in
       </a>
     </div>
   </nav>
 
-  <!-- ── Hero ── -->
+  <!-- HERO -->
   <section class="hero">
-    <div class="hero-badge">
+    <div class="hero-eyebrow">
       <span class="live-dot"></span>
-      Real-time developer metrics
+      Real-time · GitHub-powered · Open
     </div>
-    <h1>Your code activity,<br>live and beautiful</h1>
-    <p>DevPulse connects to GitHub to track your commits, streaks, and languages — then surfaces them as a gorgeous shareable profile and embeddable badge.</p>
-    <div class="hero-actions">
-      <a href="/auth/github" class="btn-github">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+    <h1>Your code activity,<br><em>live and beautiful</em></h1>
+    <p class="hero-sub">DevPulse connects to GitHub and turns your commits, streaks, and languages into a gorgeous shareable profile — updated the moment you push.</p>
+    <div class="hero-cta-group">
+      <a href="/auth/github" class="btn-hero-primary">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
         Get started free
       </a>
-      <a href="#features" class="btn btn-outline btn-lg">See features</a>
+      <a href="/u/hackclub-demo" class="btn-hero-secondary">View demo profile →</a>
     </div>
 
-    <!-- Stats preview -->
-    <div class="stats-demo" style="margin-top:3rem;max-width:640px;width:100%">
-      <div class="demo-card">
-        <div class="dc-val" style="color:#6366f1">2,847</div>
-        <div class="dc-lbl">Total commits</div>
+    <!-- Stats showcase -->
+    <div class="stats-showcase">
+      <div class="showcase-cell">
+        <div class="sc-live"><span class="live-dot"></span> live</div>
+        <div class="sc-num sc-commits" id="ticker-commits">2,847</div>
+        <div class="sc-label">Total commits</div>
       </div>
-      <div class="demo-card">
-        <div class="dc-val" style="color:#3fb950">38<small style="font-size:1rem">d</small></div>
-        <div class="dc-lbl">Current streak</div>
+      <div class="showcase-cell">
+        <div class="sc-num sc-streak">38<span style="font-size:1rem">d</span></div>
+        <div class="sc-label">Current streak</div>
       </div>
-      <div class="demo-card">
-        <div class="dc-val" style="color:#3b82f6">142</div>
-        <div class="dc-lbl">Repositories</div>
+      <div class="showcase-cell">
+        <div class="sc-num sc-repos">142</div>
+        <div class="sc-label">Repositories</div>
       </div>
-      <div class="demo-card">
-        <div class="dc-val" style="color:#e3b341">1.2<small style="font-size:1rem">kh</small></div>
-        <div class="dc-lbl">Hours coded</div>
+      <div class="showcase-cell">
+        <div class="sc-num sc-hours">1.2<span style="font-size:1rem">kh</span></div>
+        <div class="sc-label">Hours coded</div>
       </div>
     </div>
   </section>
 
-  <!-- ── Features ── -->
-  <section class="features" id="features">
-    <h2>Everything you need to showcase your work</h2>
-    <p class="sub">Built for developers who ship.</p>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
+  <!-- WHAT IS DEVPULSE -->
+  <section class="section-intro reveal">
+    <div>
+      <div class="intro-label">// what is devpulse</div>
+      <h2 class="intro-heading">Your GitHub activity,<br>finally worth showing off</h2>
+      <p class="intro-body">Most developer portfolios are static. DevPulse is alive — it listens to your GitHub pushes via webhook, updates your stats in real time, and broadcasts changes to anyone viewing your profile over WebSocket.</p>
+      <p class="intro-body">One profile URL. One badge for your README. Zero maintenance.</p>
+      <a href="/u/hackclub-demo" class="btn-hero-secondary" style="font-size:.875rem">See a live example →</a>
+    </div>
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="t-dot t-red"></div>
+        <div class="t-dot t-yellow"></div>
+        <div class="t-dot t-green"></div>
+        <span style="margin-left:.5rem;font-size:.72rem;color:#3d4149">devpulse webhook</span>
+      </div>
+      <div class="terminal-body">
+        <div><span class="t-dim">$</span> <span class="t-acc">git</span> <span class="t-wht">push origin main</span></div>
+        <div class="t-dim">Enumerating objects: 5, done.</div>
+        <div class="t-dim">Writing objects: 100% (3/3), done.</div>
+        <div>&nbsp;</div>
+        <div><span class="t-grn">→</span> <span class="t-dim">webhook received</span></div>
+        <div><span class="t-grn">→</span> <span class="t-wht">commit</span><span class="t-dim">: feat: add multiplayer support</span></div>
+        <div><span class="t-grn">→</span> <span class="t-wht">total_commits</span> <span class="t-ylw">2846</span> <span class="t-dim">→</span> <span class="t-grn">2847</span></div>
+        <div><span class="t-grn">→</span> <span class="t-dim">broadcasting to</span> <span class="t-acc">3 viewers</span><span class="t-dim"> via ws</span></div>
+        <div>&nbsp;</div>
+        <div><span class="t-grn">✓</span> <span class="t-wht">profile updated in</span> <span class="t-ylw">12ms</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="section-features reveal" id="features">
+    <div class="section-label">// capabilities</div>
+    <h2 class="section-title">Everything you need to showcase your work</h2>
+    <p class="section-sub">Built for developers who actually ship.</p>
+
+    <div class="features-bento">
+      <div class="bento-card wide accent-card">
+        <div class="bento-icon">⚡</div>
         <h3>Live WebSocket updates</h3>
-        <p>Your stats update the moment you push — no refresh required. Powered by WebSockets for instant delivery.</p>
+        <p>Your stats update the moment you push — no refresh required. Anyone viewing your profile sees commits appear in real time, with animated counters and activity feed updates.</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <h3>Embeddable badge</h3>
-        <p>Drop a one-line Markdown snippet into your GitHub README and show off your stats wherever you go.</p>
+      <div class="bento-card">
+        <div class="bento-icon">🔗</div>
+        <h3>README badge</h3>
+        <p>One Markdown snippet. Drop it in your GitHub profile README and your live stats appear wherever you go.</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔒</div>
-        <h3>Privacy controls</h3>
-        <p>Toggle your profile public or private at any time. CSRF protection, HttpOnly cookies, and rate limiting built in.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📊</div>
+      <div class="bento-card">
+        <div class="bento-icon">📊</div>
         <h3>Language breakdown</h3>
-        <p>See exactly which languages you've been using and how your mix has evolved over time.</p>
+        <p>See which languages you've been shipping across all your repos, updated automatically.</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🚀</div>
-        <h3>Webhook push events</h3>
-        <p>Register a GitHub webhook and your commit feed updates live for anyone viewing your profile.</p>
+      <div class="bento-card">
+        <div class="bento-icon">🔒</div>
+        <h3>Privacy controls</h3>
+        <p>Toggle public or private at any time. CSRF protection, HttpOnly cookies, HMAC-verified webhooks, and rate limiting built in.</p>
       </div>
-      <div class="feature-card">
-        <div class="feature-icon">🌐</div>
-        <h3>Public profile page</h3>
-        <p>A clean shareable URL at <code>/u/username</code> that shows your stats, activity, and language breakdown.</p>
+      <div class="bento-card">
+        <div class="bento-icon">🌐</div>
+        <h3>Public profile</h3>
+        <p>A shareable <code style="font-family:monospace;font-size:.8em;color:#6366f1">/u/username</code> page with your stats, activity, and streak history.</p>
+      </div>
+      <div class="bento-card">
+        <div class="bento-icon">🚀</div>
+        <h3>GitHub webhooks</h3>
+        <p>One URL. Paste it into GitHub's webhook settings and every push triggers a live update.</p>
       </div>
     </div>
   </section>
 
+  <!-- HOW IT WORKS -->
+  <section class="section-how reveal" id="how">
+    <div class="section-label">// how it works</div>
+    <h2 class="section-title">Up and running in 3 steps</h2>
+    <p class="section-sub">No config files. No CLI tools. Just GitHub.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01 /</div>
+        <div class="step-line"></div>
+        <h3>Sign in with GitHub</h3>
+        <p>OAuth in one click. We pull your public repos, language data, and recent activity immediately after login.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">02 /</div>
+        <div class="step-line" style="background:linear-gradient(90deg,#3b82f6,transparent)"></div>
+        <h3>Add the webhook</h3>
+        <p>Copy your unique webhook URL from the dashboard and paste it into any repo's webhook settings on GitHub.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">03 /</div>
+        <div class="step-line" style="background:linear-gradient(90deg,#3fb950,transparent)"></div>
+        <h3>Push &amp; watch it update</h3>
+        <p>Every commit fires the webhook. Your profile updates live — stats, activity feed, streak counter, everything.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEMO PROFILE PREVIEW -->
+  <section class="section-demo reveal">
+    <div class="section-label">// live demo</div>
+    <h2 class="section-title" style="margin-bottom:.6rem">What your profile looks like</h2>
+    <p class="section-sub" style="margin-bottom:2rem">Try the <a href="/u/hackclub-demo" style="color:var(--accent)">Hack Club demo profile</a> to see it live.</p>
+
+    <div class="demo-profile-card">
+      <div class="demo-profile-header">
+        <div class="demo-avatar">🏕</div>
+        <div>
+          <div class="demo-profile-name">Hack Club</div>
+          <div class="demo-profile-handle">@hackclub-demo</div>
+          <div class="demo-profile-bio">A nonprofit network of high school coding clubs. Building cool things.</div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:.35rem;font-size:.75rem;color:var(--text-3)">
+          <span class="live-dot"></span> Live
+        </div>
+      </div>
+      <div class="demo-stats-row">
+        <div class="demo-stat-cell">
+          <div class="demo-stat-val" style="color:#6366f1">1,847</div>
+          <div class="demo-stat-lbl">Commits</div>
+        </div>
+        <div class="demo-stat-cell">
+          <div class="demo-stat-val" style="color:#3fb950">42d</div>
+          <div class="demo-stat-lbl">Streak</div>
+        </div>
+        <div class="demo-stat-cell">
+          <div class="demo-stat-val" style="color:#3b82f6">38</div>
+          <div class="demo-stat-lbl">Repos</div>
+        </div>
+        <div class="demo-stat-cell">
+          <div class="demo-stat-val" style="color:#e3b341">312h</div>
+          <div class="demo-stat-lbl">Hours coded</div>
+        </div>
+      </div>
+      <div class="demo-activity">
+        <div class="demo-activity-title">
+          Recent activity
+          <span style="display:flex;align-items:center;gap:.3rem"><span class="live-dot"></span> Live</span>
+        </div>
+        <div class="demo-commit">
+          <div class="demo-commit-dot"></div>
+          <div>
+            <div class="demo-commit-repo">hackclub/sprig</div>
+            <div class="demo-commit-msg">feat: add multiplayer support to game engine</div>
+          </div>
+          <div class="demo-commit-time">15m ago</div>
+        </div>
+        <div class="demo-commit">
+          <div class="demo-commit-dot" style="background:#3b82f6"></div>
+          <div>
+            <div class="demo-commit-repo">hackclub/site</div>
+            <div class="demo-commit-msg">fix: mobile nav overflow on small screens</div>
+          </div>
+          <div class="demo-commit-time">1h ago</div>
+        </div>
+        <div class="demo-commit">
+          <div class="demo-commit-dot" style="background:#3fb950"></div>
+          <div>
+            <div class="demo-commit-repo">hackclub/hcb</div>
+            <div class="demo-commit-msg">feat: stripe webhook handler for donations</div>
+          </div>
+          <div class="demo-commit-time">3h ago</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-band reveal">
+    <h2>Start tracking your commits today</h2>
+    <p>Free forever. No credit card. Just GitHub.</p>
+    <a href="/auth/github" class="btn-hero-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+      Sign in with GitHub
+    </a>
+  </div>
+
+  <!-- FOOTER -->
   <footer class="landing-footer">
-    © 2025 DevPulse · Built with Crow &amp; ❤️
+    <div class="footer-logo">devpulse</div>
+    <div class="footer-links">
+      <a href="#features" class="footer-link">Features</a>
+      <a href="#how" class="footer-link">How it works</a>
+      <a href="/u/hackclub-demo" class="footer-link">Demo</a>
+    </div>
+    <div class="footer-copy">© 2025 DevPulse · Built with Crow &amp; ❤️</div>
   </footer>
 
   <script>
-    // Handle OAuth error query params
+    // Error banner
     const err = new URLSearchParams(location.search).get('error');
     if (err) {
-      const msgs = {
-        oauth_failed: 'OAuth authorization failed. Please try again.',
-        token_failed: 'Could not exchange token. Please try again.',
-        user_failed:  'Could not fetch GitHub profile.',
-        db_failed:    'Server error. Please try again shortly.',
-      };
+      const msgs = { oauth_failed:'OAuth authorization failed.', token_failed:'Could not exchange token.', user_failed:'Could not fetch GitHub profile.', db_failed:'Server error. Please try again.' };
       const banner = document.getElementById('error-top');
       const msg    = document.getElementById('error-msg');
-      if (banner && msg) {
-        msg.textContent = msgs[err] || 'Authentication error. Please try again.';
-        banner.classList.remove('hidden');
-        // Clean the URL
-        history.replaceState(null, '', '/');
-      }
+      if (banner && msg) { msg.textContent = msgs[err] || 'Authentication error.'; banner.classList.remove('hidden'); history.replaceState(null,'','/'); }
     }
+
+    // Scroll reveal
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+    // Ticker: animate commits number
+    let n = 2847;
+    setInterval(() => {
+      if (Math.random() > 0.7) {
+        n += Math.floor(Math.random() * 3) + 1;
+        const el = document.getElementById('ticker-commits');
+        if (el) { el.textContent = n.toLocaleString(); el.style.transition = 'color .3s'; el.style.color = '#3fb950'; setTimeout(() => el.style.color = '#6366f1', 600); }
+      }
+    }, 4000);
   </script>
 </body>
 </html>
