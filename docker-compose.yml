@@ -1,0 +1,20 @@
+services:
+  devpulse:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      APP_URL: "http://localhost:8080"
+      DB_PATH: "/app/data/devpulse.sqlite"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
+    volumes:
+      - devpulse_data:/app/data
+
+volumes:
+  devpulse_data:

@@ -9,9 +9,9 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <sqlite3.h>
- 
+
 namespace Security {
- 
+
 // ── Token generation ─────────────────────────────────────────
 inline std::string generateToken(size_t bytes = 32) {
     std::random_device rd;
@@ -22,7 +22,7 @@ inline std::string generateToken(size_t bytes = 32) {
         ss << std::hex << std::setw(16) << std::setfill('0') << dis(gen);
     return ss.str().substr(0, bytes * 2);
 }
- 
+
 // ── SHA-256 hash ──────────────────────────────────────────────
 inline std::string sha256(const std::string& input) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -33,7 +33,7 @@ inline std::string sha256(const std::string& input) {
         ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
     return ss.str();
 }
- 
+
 // ── HMAC-SHA256 (webhook verification) ───────────────────────
 inline std::string hmacSha256(const std::string& key,
                                const std::string& data) {
@@ -48,7 +48,7 @@ inline std::string hmacSha256(const std::string& key,
         ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
     return "sha256=" + ss.str();
 }
- 
+
 // ── Constant-time compare ─────────────────────────────────────
 inline bool safeCompare(const std::string& a, const std::string& b) {
     if (a.size() != b.size()) return false;
@@ -56,7 +56,7 @@ inline bool safeCompare(const std::string& a, const std::string& b) {
     for (size_t i = 0; i < a.size(); i++) diff |= (a[i] ^ b[i]);
     return diff == 0;
 }
- 
+
 // ── Input sanitization ────────────────────────────────────────
 inline std::string sanitize(const std::string& s, size_t maxLen = 256) {
     if (s.empty()) return "";
@@ -67,27 +67,27 @@ inline std::string sanitize(const std::string& s, size_t maxLen = 256) {
                                     (c >= 0x0e && c < 0x20); }), out.end());
     return out;
 }
- 
+
 inline bool isValidUsername(const std::string& s) {
     static const std::regex re("^[a-zA-Z0-9_\\-]{1,39}$");
     return std::regex_match(s, re);
 }
- 
+
 inline bool isValidUrl(const std::string& s) {
     static const std::regex re("^https?://[^\\s]{1,2048}$");
     return std::regex_match(s, re);
 }
- 
+
 // ── Rate limiting (SQLite backed, per IP hash) ────────────────
 struct RateLimitResult { bool allowed; int remaining; };
- 
+
 inline RateLimitResult checkRateLimit(sqlite3* db,
                                        const std::string& key,
                                        int maxRequests,
                                        int windowSeconds) {
     long long now = std::chrono::duration_cast<std::chrono::seconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
- 
+
     sqlite3_stmt* stmt;
     // Get or create window
     sqlite3_prepare_v2(db,
@@ -103,7 +103,7 @@ inline RateLimitResult checkRateLimit(sqlite3* db,
     sqlite3_bind_int64(stmt, 7, now);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
- 
+
     // Read count
     sqlite3_prepare_v2(db,
         "SELECT count FROM rate_limits WHERE key=?", -1, &stmt, nullptr);
@@ -111,21 +111,21 @@ inline RateLimitResult checkRateLimit(sqlite3* db,
     int count = 0;
     if (sqlite3_step(stmt) == SQLITE_ROW) count = sqlite3_column_int(stmt, 0);
     sqlite3_finalize(stmt);
- 
+
     int remaining = std::max(0, maxRequests - count);
     return { count <= maxRequests, remaining };
 }
- 
+
 // ── Session expiry (24h) ──────────────────────────────────────
 inline long long sessionExpiry() {
     return std::chrono::duration_cast<std::chrono::seconds>(
                std::chrono::system_clock::now().time_since_epoch()).count()
            + 86400;
 }
- 
+
 inline long long nowSec() {
     return std::chrono::duration_cast<std::chrono::seconds>(
                std::chrono::system_clock::now().time_since_epoch()).count();
 }
- 
+
 } // namespace Security

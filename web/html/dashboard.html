@@ -9,14 +9,18 @@
 <body>
   <div id="toast-container"></div>
 
-  <!-- Page loader -->
-  <div id="page-loader">
-    <div class="spinner"></div>
-  </div>
-
-  <div class="dash-layout">
+ 
+   <!-- Page loader -->
+<div id="page-loader" style="display: none;">
+  <div class="spinner"></div>
+</div>
+<script>
+  // Hide loader as soon as DOM is ready, before other scripts
+  document.getElementById('page-loader').style.display = 'none';
+</script>
 
     <!-- ── Header ── -->
+     <div class="dash-layout">
     <header class="dash-header">
       <div class="dash-logo">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -176,18 +180,19 @@
     </main>
   </div>
 
-  <script src="/web/js/api.js"></script>
-  <script src="/web/js/dashboard.js"></script>
-  <script>
-    // Wire second logout button
-    document.getElementById('logout-btn-2')?.addEventListener('click', async () => {
-      try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
-      location.href = '/';
+   <script src="/web/js/api.js"></script>
+<script src="/web/js/dashboard.js"></script>
+<script>
+  document.getElementById('logout-btn-2')?.addEventListener('click', async () => {
+    try { await apiFetch('/auth/logout', { method: 'POST' }); } catch {}
+    location.href = '/';
+  });
+  document.querySelectorAll('.toggle').forEach(t => {
+    t.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }
     });
-    // Keyboard toggle support
-    document.querySelectorAll('.toggle').forEach(t => {
-      t.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); t.click(); }});
-    });
-  </script>
+  });
+
+</script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 #include <string>
 #include <optional>
 #include "../utils/security.h"
- 
+
 struct User {
     int         user_id     = 0;
     std::string github_id;
@@ -19,7 +19,7 @@ struct User {
     bool        is_public   = true;
     long long   created_at  = 0;
 };
- 
+
 struct StatsCache {
     int         total_commits     = 0;
     int         streak_days       = 0;
@@ -33,7 +33,7 @@ struct StatsCache {
     std::string languages_json;
     long long   last_updated      = 0;
 };
- 
+
 struct ActivityItem {
     int         id         = 0;
     std::string repo;
@@ -42,9 +42,9 @@ struct ActivityItem {
     std::string commit_sha;
     long long   pushed_at  = 0;
 };
- 
+
 namespace UserService {
- 
+
 inline std::optional<User> findByGithubId(sqlite3* db,
                                             const std::string& github_id) {
     sqlite3_stmt* s;
@@ -73,7 +73,7 @@ inline std::optional<User> findByGithubId(sqlite3* db,
     sqlite3_finalize(s);
     return result;
 }
- 
+
 inline std::optional<User> findByUsername(sqlite3* db,
                                            const std::string& username) {
     sqlite3_stmt* s;
@@ -102,7 +102,7 @@ inline std::optional<User> findByUsername(sqlite3* db,
     sqlite3_finalize(s);
     return result;
 }
- 
+
 inline int upsertUser(sqlite3* db, const User& u) {
     std::string webhook = Security::generateToken(32);
     sqlite3_stmt* s;
@@ -135,7 +135,7 @@ inline int upsertUser(sqlite3* db, const User& u) {
     if (!uid) uid = (int)sqlite3_last_insert_rowid(db);
     return uid;
 }
- 
+
 inline bool updateTheme(sqlite3* db, int user_id, const std::string& theme) {
     if (theme != "dark" && theme != "light") return false;
     sqlite3_stmt* s;
@@ -147,7 +147,7 @@ inline bool updateTheme(sqlite3* db, int user_id, const std::string& theme) {
     sqlite3_finalize(s);
     return true;
 }
- 
+
 inline bool updatePublic(sqlite3* db, int user_id, bool pub) {
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db,
@@ -158,7 +158,7 @@ inline bool updatePublic(sqlite3* db, int user_id, bool pub) {
     sqlite3_finalize(s);
     return true;
 }
- 
+
 // ── Stats ─────────────────────────────────────────────────────
 inline std::optional<StatsCache> getStats(sqlite3* db, int user_id) {
     sqlite3_stmt* s;
@@ -191,7 +191,7 @@ inline std::optional<StatsCache> getStats(sqlite3* db, int user_id) {
     sqlite3_finalize(s);
     return result;
 }
- 
+
 inline void upsertStats(sqlite3* db, int user_id, const StatsCache& sc) {
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db, R"(
@@ -227,7 +227,7 @@ inline void upsertStats(sqlite3* db, int user_id, const StatsCache& sc) {
     sqlite3_step(s);
     sqlite3_finalize(s);
 }
- 
+
 // ── Activity ──────────────────────────────────────────────────
 inline void insertActivity(sqlite3* db, int user_id,
                             const ActivityItem& a) {
@@ -250,7 +250,7 @@ inline void insertActivity(sqlite3* db, int user_id,
          std::to_string(user_id) + " ORDER BY pushed_at DESC LIMIT 100)").c_str(),
         nullptr, nullptr, nullptr);
 }
- 
+
 inline std::vector<ActivityItem> getActivity(sqlite3* db,
                                               int user_id,
                                               int limit = 10) {
@@ -278,7 +278,7 @@ inline std::vector<ActivityItem> getActivity(sqlite3* db,
     sqlite3_finalize(s);
     return items;
 }
- 
+
 // ── Sessions ──────────────────────────────────────────────────
 inline std::string createSession(sqlite3* db, int user_id,
                                   const std::string& ip_hash) {
@@ -287,7 +287,7 @@ inline std::string createSession(sqlite3* db, int user_id,
         ("DELETE FROM sessions WHERE expires_at < " +
          std::to_string(Security::nowSec())).c_str(),
         nullptr, nullptr, nullptr);
- 
+
     std::string token = Security::generateToken(32);
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db,
@@ -302,7 +302,7 @@ inline std::string createSession(sqlite3* db, int user_id,
     sqlite3_finalize(s);
     return token;
 }
- 
+
 inline std::optional<int> validateSession(sqlite3* db,
                                            const std::string& token) {
     if (token.empty() || token.size() > 128) return std::nullopt;
@@ -318,7 +318,7 @@ inline std::optional<int> validateSession(sqlite3* db,
     sqlite3_finalize(s);
     return uid;
 }
- 
+
 inline void deleteSession(sqlite3* db, const std::string& token) {
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db,
@@ -327,7 +327,7 @@ inline void deleteSession(sqlite3* db, const std::string& token) {
     sqlite3_step(s);
     sqlite3_finalize(s);
 }
- 
+
 // ── Search ────────────────────────────────────────────────────
 inline std::vector<User> searchUsers(sqlite3* db, const std::string& query) {
     sqlite3_stmt* s;
@@ -360,5 +360,5 @@ inline std::vector<User> searchUsers(sqlite3* db, const std::string& query) {
     sqlite3_finalize(s);
     return results;
 }
- 
+
 } // namespace UserService
