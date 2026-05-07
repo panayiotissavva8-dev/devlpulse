@@ -699,11 +699,6 @@ int main() {
         }
         sqlite3_finalize(s);
 
-        std::cout << "[API/me] uid=" << *uid << " uname='" << uname << "'\n";
-auto user = UserService::findByUsername(db, uname);
-std::cout << "[API/me] findByUsername returned " << (user ? "found" : "null") << "\n";
-
-         // Always return own data regardless of public flag
         auto user = UserService::findByUsername(db, uname);
         if (!user) return jsonError(404, "User not found");
 
@@ -715,20 +710,41 @@ std::cout << "[API/me] findByUsername returned " << (user ? "found" : "null") <<
             try { langs = json::parse(stats->languages_json); } catch(...) {}
         }
 
-        auto profile = buildProfileJson(uname);
-        if (!profile) {
-            auto user = UserService::findByUsername(db, uname);
-            if (!user) return jsonError(404, "User not found");
-            return jsonOk({{"user", {
+        json acts = json::array();
+        for (auto& a : activity) acts.push_back({
+            {"repo",       a.repo},
+            {"message",    a.message},
+            {"language",   a.language},
+            {"commit_sha", a.commit_sha},
+            {"pushed_at",  a.pushed_at}
+        });
+
+        return jsonOk({
+            {"user", {
                 {"username",     user->username},
                 {"display_name", user->display_name},
                 {"avatar_url",   user->avatar_url},
                 {"bio",          user->bio},
+                {"location",     user->location},
+                {"role",         user->role},
+                {"github_url",   user->github_url},
                 {"theme",        user->theme},
                 {"public",       user->is_public}
-            }}});
-        }
-        return jsonOk(*profile);
+            }},
+            {"stats", stats ? json{
+                {"total_commits",    stats->total_commits},
+                {"streak_days",      stats->streak_days},
+                {"best_streak",      stats->best_streak},
+                {"repos_count",      stats->repos_count},
+                {"hours_coded",      stats->hours_coded},
+                {"commits_today",    stats->commits_today},
+                {"repos_this_month", stats->repos_this_month},
+                {"hours_this_week",  stats->hours_this_week},
+                {"top_language",     stats->top_language}
+            } : json(nullptr)},
+            {"languages", langs},
+            {"activity",  acts}
+        });
     });
 
 
