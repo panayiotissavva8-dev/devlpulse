@@ -192,11 +192,16 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
     if (api_key.empty()) return;
     
     auto r = cpr::Get(
-        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/current/stats"},
-        cpr::Header{{"Authorization", "Basic " + 
-            cpr::util::urlEncode(api_key + ":")}},
-        cpr::Timeout{5000}
+        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/current/stats?features=projects,languages,editors,operating_systems&range=last_7_days"},
+        cpr::Header{
+            {"Authorization", "Bearer " + api_key},
+            {"Accept", "application/json"},
+            {"User-Agent", "DevPulse/1.0"}
+        },
+        cpr::Timeout{10000}
     );
+    
+    std::cout << "[Hackatime] status=" << r.status_code << " body=" << r.text.substr(0, 200) << "\n";
     
     if (r.status_code != 200) return;
     try {
@@ -210,7 +215,10 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         sc->hours_coded = hours;
         sc->last_updated = Security::nowSec();
         UserService::upsertStats(db, user_id, *sc);
-    } catch(...) {}
+        std::cout << "[Hackatime] Updated hours=" << hours << " for user_id=" << user_id << "\n";
+    } catch(const std::exception& e) {
+        std::cerr << "[Hackatime] Error: " << e.what() << "\n";
+    }
 }
 
 } // namespace GitHubService
