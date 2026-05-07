@@ -237,20 +237,23 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         std::cerr << "[Hackatime] Error: " << e.what() << "\n";
     }
 
-   // fetch this week
-auto r2 = cpr::Get(
-    cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats?range=last_7_days"},
-    cpr::Header{{"Authorization", "Bearer " + api_key}, {"User-Agent", "DevPulse/1.0"}},
-    cpr::Timeout{10000}
-);
-if (r2.status_code == 200) {
-    try {
-        auto j2 = json::parse(r2.text);
-        double week_secs = j2["data"].value("total_seconds", 0.0);
-        sc->hours_this_week = week_secs / 3600.0;
-        UserService::upsertStats(db, user_id, *sc);
-    } catch(...) {}
-}
+    // fetch this week
+    auto r2 = cpr::Get(
+        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats?range=last_7_days"},
+        cpr::Header{{"Authorization", "Bearer " + api_key}, {"User-Agent", "DevPulse/1.0"}},
+        cpr::Timeout{10000}
+    );
+    if (r2.status_code == 200) {
+        try {
+            auto j2 = json::parse(r2.text);
+            double week_secs = j2["data"].value("total_seconds", 0.0);
+            auto sc2 = UserService::getStats(db, user_id);
+            if (sc2) {
+                sc2->hours_this_week = week_secs / 3600.0;
+                UserService::upsertStats(db, user_id, *sc2);
+            }
+        } catch(...) {}
+    }
 }
 
 } // namespace GitHubService
