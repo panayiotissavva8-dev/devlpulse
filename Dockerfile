@@ -41,6 +41,7 @@ FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl3 \
     libsqlite3-0 \
+    sqlite3 \
     libcurl4 \
     ca-certificates \
     tini \
