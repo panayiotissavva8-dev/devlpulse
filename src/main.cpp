@@ -703,6 +703,8 @@ int main() {
         }
         sqlite3_finalize(s);
 
+        std::cout << "[API/me] cookie='" << getSessionToken(req) << "' uid=" << (uid ? *uid : -1) << " uname='" << uname << "'\n";
+
         auto user = UserService::findByUsername(db, uname);
         if (!user) return jsonError(404, "User not found");
 
