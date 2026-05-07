@@ -174,7 +174,7 @@ bool csrfValid(const crow::request& req) {
 void setSessionCookie(crow::response& res, const std::string& token) {
     res.add_header("Set-Cookie",
         "dp_session=" + token +
-        "; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400");
+        "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");
 }
 
 void clearSessionCookie(crow::response& res) {
@@ -541,6 +541,29 @@ int main() {
         return res;
     });
 
+    CROW_ROUTE(app, "/auth/landing")([](const crow::request& req) {
+    std::string token = req.url_params.get("token") 
+                        ? req.url_params.get("token") : "";
+    if (token.size() != 64) {
+        crow::response res(302);
+        res.add_header("Location", "/?error=invalid_token");
+        return res;
+    }
+    auto uid = UserService::validateSession(db, token);
+    if (!uid) {
+        crow::response res(302);
+        res.add_header("Location", "/?error=invalid_session");
+        return res;
+    }
+    crow::response res(200);
+    res.add_header("Content-Type", "text/html");
+    setSessionCookie(res, token);
+    res.body = R"(<!DOCTYPE html><html><head>
+        <meta http-equiv="refresh" content="0;url=/dashboard">
+        </head><body>Redirecting...</body></html>)";
+    return res;
+});
+
     CROW_ROUTE(app, "/u/<string>")([](const crow::request& req,
                                       const std::string& username) {
         if (!Security::isValidUsername(username))
@@ -642,7 +665,7 @@ int main() {
         setSessionCookie(res, token);
         res.add_header("Set-Cookie",
             "dp_oauth_state=; Path=/; HttpOnly; Max-Age=0");
-        res.add_header("Location", "/dashboard");
+        res.add_header("Location", "/auth/landing?token=" + token);
         return res;
     });
 
