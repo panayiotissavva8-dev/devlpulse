@@ -541,7 +541,7 @@ int main() {
         return res;
     });
 
-    CROW_ROUTE(app, "/auth/landing")([](const crow::request& req) {
+   CROW_ROUTE(app, "/auth/landing")([](const crow::request& req) {
     std::string token = req.url_params.get("token") 
                         ? req.url_params.get("token") : "";
     if (token.size() != 64) {
@@ -557,10 +557,13 @@ int main() {
     }
     crow::response res(200);
     res.add_header("Content-Type", "text/html");
-    setSessionCookie(res, token);
-    res.body = R"(<!DOCTYPE html><html><head>
-        <meta http-equiv="refresh" content="0;url=/dashboard">
-        </head><body>Redirecting...</body></html>)";
+    res.add_header("Set-Cookie", 
+        "dp_session=" + token + 
+        "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");
+    res.body = R"(<!DOCTYPE html><html><head></head><body>
+        <script>window.location.replace('/dashboard');</script>
+        <noscript><a href="/dashboard">Click here</a></noscript>
+        </body></html>)";
     return res;
 });
 
