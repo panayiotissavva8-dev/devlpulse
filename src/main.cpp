@@ -1087,18 +1087,7 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
 });
 
 
-CROW_ROUTE(app, "/api/search")([](const crow::request& req) {
-    std::string q = req.url_params.get("q") ? req.url_params.get("q") : "";
-    if (q.size() < 2) return jsonOk({{"users", json::array()}});
-    auto users = UserService::searchUsers(db, q);
-    json arr = json::array();
-    for (auto& u : users) arr.push_back({
-        {"username",     u.username},
-        {"display_name", u.display_name},
-        {"avatar_url",   u.avatar_url}
-    });
-    return jsonOk({{"users", arr}});
-});
+
 
     // ═══════════════════════════════════════════════════════════
     //  WEBSOCKET: /ws/<username>
