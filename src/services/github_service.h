@@ -202,7 +202,6 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         cpr::Timeout{10000}
     );
     
-    std::cout << "[Hackatime] status=" << r.status_code << "\n";
     if (r.status_code != 200) return;
     try {
         auto j = json::parse(r.text);
@@ -210,15 +209,48 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         double total_seconds = data.value("total_seconds", 0.0);
         double hours = total_seconds / 3600.0;
         
+        // Build languages JSON from Hackatime
+        json langs = json::array();
+        std::string top_lang;
+        double top_pct = 0;
+        if (data.contains("languages") && data["languages"].is_array()) {
+            for (auto& l : data["languages"]) {
+                std::string name = l.value("name", "");
+                double pct = l.value("percent", 0.0);
+                long long secs = l.value("total_seconds", 0LL);
+                if (!name.empty()) {
+                    langs.push_back({{"name", name}, {"bytes", secs}, {"percentage", pct}});
+                    if (pct > top_pct) { top_pct = pct; top_lang = name; }
+                }
+            }
+        }
+        
         auto sc = UserService::getStats(db, user_id);
         if (!sc) return;
-        sc->hours_coded = hours;
-        sc->last_updated = Security::nowSec();
+        sc->hours_coded     = hours;
+        sc->top_language    = top_lang;
+        sc->languages_json  = langs.dump();
+        sc->last_updated    = Security::nowSec();
         UserService::upsertStats(db, user_id, *sc);
-        std::cout << "[Hackatime] Updated hours=" << hours << "\n";
+        std::cout << "[Hackatime] Updated hours=" << hours << " top_lang=" << top_lang << "\n";
     } catch(const std::exception& e) {
         std::cerr << "[Hackatime] Error: " << e.what() << "\n";
     }
+
+   // fetch this week
+auto r2 = cpr::Get(
+    cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats?range=last_7_days"},
+    cpr::Header{{"Authorization", "Bearer " + api_key}, {"User-Agent", "DevPulse/1.0"}},
+    cpr::Timeout{10000}
+);
+if (r2.status_code == 200) {
+    try {
+        auto j2 = json::parse(r2.text);
+        double week_secs = j2["data"].value("total_seconds", 0.0);
+        sc->hours_this_week = week_secs / 3600.0;
+        UserService::upsertStats(db, user_id, *sc);
+    } catch(...) {}
+}
 }
 
 } // namespace GitHubService
