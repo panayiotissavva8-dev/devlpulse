@@ -231,11 +231,52 @@ function prependActivity(acts, isNew) {
   items.forEach((item, i) => { if (i >= 10) item.remove(); });
 }
 
+function wireSearch() {
+    const input = $('user-search');
+    const results = $('search-results');
+    if (!input || !results) return;
+
+    let debounce;
+    input.addEventListener('input', () => {
+        clearTimeout(debounce);
+        const q = input.value.trim();
+        if (q.length < 2) { results.classList.remove('open'); return; }
+        debounce = setTimeout(async () => {
+            try {
+                const data = await apiFetch('/api/search?q=' + encodeURIComponent(q));
+                results.innerHTML = '';
+                if (!data.users?.length) {
+                    results.innerHTML = '<div class="search-no-results">No users found</div>';
+                } else {
+                    data.users.forEach(u => {
+                        const a = document.createElement('a');
+                        a.className = 'search-result-item';
+                        a.href = '/u/' + u.username;
+                        a.innerHTML = `
+                            <img src="${u.avatar_url}" alt="">
+                            <div>
+                                <div class="sr-name">${u.display_name || u.username}</div>
+                                <div class="sr-user">@${u.username}</div>
+                            </div>`;
+                        results.appendChild(a);
+                    });
+                }
+                results.classList.add('open');
+            } catch {}
+        }, 300);
+    });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#search-wrap')) results.classList.remove('open');
+    });
+}
+
 // ── Bootstrap ─────────────────────────────────────────────────
 (async () => {
   try {
     await loadMe();
     wireSettings();
+    wireSearch();
     wireLogout();
     connectWS();
   } catch (err) {
