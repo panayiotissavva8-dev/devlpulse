@@ -409,6 +409,7 @@ void statsRefreshLoop() {
             auto sc   = GitHubService::fetchUserStats(username);
             auto acts = GitHubService::fetchActivity(username);
 
+            // Preserve existing hours — Hackatime is the source of truth
             auto existing = UserService::getStats(db, uid);
             if (existing) {
                 sc.hours_coded     = existing->hours_coded;
@@ -418,13 +419,14 @@ void statsRefreshLoop() {
                 sc.commits_today   = existing->commits_today;
             }
 
-            if (!hackatime_key.empty()) {
-                GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
-            }
-
+            // Save GitHub stats first
             UserService::upsertStats(db, uid, sc);
             for (auto& a : acts)
                 UserService::insertActivity(db, uid, a);
+
+            // Then overwrite hours from Hackatime (source of truth)
+            if (!hackatime_key.empty())
+                GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
 
             std::cout << "[Refresh] Updated: " << username << "\n";
         }
@@ -1051,10 +1053,23 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
     std::thread([username, hackatime_key, uid = *uid]() {
         auto sc   = GitHubService::fetchUserStats(username);
         auto acts = GitHubService::fetchActivity(username);
-        if (!hackatime_key.empty())
-            GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
+
+        // Preserve existing hours
+        auto existing = UserService::getStats(db, uid);
+        if (existing) {
+            sc.hours_coded     = existing->hours_coded;
+            sc.hours_this_week = existing->hours_this_week;
+            sc.streak_days     = existing->streak_days;
+            sc.best_streak     = existing->best_streak;
+            sc.commits_today   = existing->commits_today;
+        }
+
         UserService::upsertStats(db, uid, sc);
         for (auto& a : acts) UserService::insertActivity(db, uid, a);
+
+        // Hackatime overwrites hours last
+        if (!hackatime_key.empty())
+            GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
     }).detach();
     
     return jsonOk({{"ok", true}, {"message", "Refresh started"}});
