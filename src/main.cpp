@@ -1028,6 +1028,38 @@ CROW_ROUTE(app, "/api/me/webhook-secret")([](const crow::request& req) {
     } catch(...) { return jsonError(400, "Invalid JSON"); }
 });
 
+// temporary testing refresh (remove when ready)
+CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
+    auto uid = authenticate(req);
+    if (!uid) return jsonError(401, "Unauthorized");
+    
+    sqlite3_stmt* s;
+    sqlite3_prepare_v2(db,
+        "SELECT username, hackatime_key FROM users WHERE user_id=?",
+        -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, *uid);
+    
+    std::string username, hackatime_key;
+    if (sqlite3_step(s) == SQLITE_ROW) {
+        auto p1 = sqlite3_column_text(s, 0);
+        auto p2 = sqlite3_column_text(s, 1);
+        if (p1) username = reinterpret_cast<const char*>(p1);
+        if (p2) hackatime_key = reinterpret_cast<const char*>(p2);
+    }
+    sqlite3_finalize(s);
+    
+    std::thread([username, hackatime_key, uid = *uid]() {
+        auto sc   = GitHubService::fetchUserStats(username);
+        auto acts = GitHubService::fetchActivity(username);
+        if (!hackatime_key.empty())
+            GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
+        UserService::upsertStats(db, uid, sc);
+        for (auto& a : acts) UserService::insertActivity(db, uid, a);
+    }).detach();
+    
+    return jsonOk({{"ok", true}, {"message", "Refresh started"}});
+});
+
     // ═══════════════════════════════════════════════════════════
     //  WEBSOCKET: /ws/<username>
     //
