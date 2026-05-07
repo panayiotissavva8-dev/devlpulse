@@ -239,7 +239,7 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
 
     // fetch this week
     auto r2 = cpr::Get(
-        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats?range=last_7_days"},
+       cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats?features=coding_activity&range=last_7_days"},
         cpr::Header{{"Authorization", "Bearer " + api_key}, {"User-Agent", "DevPulse/1.0"}},
         cpr::Timeout{10000}
     );

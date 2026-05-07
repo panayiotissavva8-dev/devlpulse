@@ -23,6 +23,44 @@
   --shadow:   0 4px 24px rgba(0,0,0,.5);
 }
 
+/* ============================================================
+   LIGHT THEME
+   ============================================================ */
+[data-theme="light"] {
+  --bg:       #f6f8fa;
+  --bg-1:     #ffffff;
+  --bg-2:     #eaeef2;
+  --border:   #d0d7de;
+  --accent:   #6366f1;
+  --accent-2: #3b82f6;
+  --accent-glow: rgba(99,102,241,.15);
+  --green:    #1a7f37;
+  --red:      #cf222e;
+  --yellow:   #9a6700;
+  --text:     #1f2328;
+  --text-2:   #656d76;
+  --text-3:   #818b98;
+  --shadow:   0 4px 24px rgba(0,0,0,.08);
+}
+
+[data-theme="light"] .dash-header {
+  background: rgba(246,248,250,.9);
+}
+
+[data-theme="light"] .landing-nav {
+  background: rgba(246,248,250,.85);
+}
+
+[data-theme="light"] .hero h1 {
+  background: linear-gradient(135deg, #1f2328 30%, #6366f1);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+[data-theme="light"] .profile-header {
+  background: linear-gradient(135deg, var(--bg-1) 0%, rgba(99,102,241,.05) 100%);
+}
+
 body {
   background: var(--bg);
   color: var(--text);

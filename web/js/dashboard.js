@@ -18,6 +18,7 @@ async function loadMe() {
   _stats = data.stats;
 
   renderHeader(_user);
+  document.documentElement.setAttribute('data-theme', _user.theme || 'dark');
   renderGreeting(_user);
   renderStats(_stats);
   renderActivity(data.activity || []);
@@ -106,20 +107,20 @@ apiFetch('/api/me/webhook-secret').then(d => {
 // ── Settings: theme ───────────────────────────────────────────
 function wireSettings() {
   const themeToggle = $('theme-toggle');
-  if (themeToggle) {
-    const isDark = (_user?.theme || 'dark') === 'dark';
-    if (isDark) themeToggle.classList.add('on');
+    if (!themeToggle) return;
+    
+    // Set initial state from saved theme
+    if (_user?.theme === 'dark') themeToggle.classList.add('on');
+    
     themeToggle.addEventListener('click', async () => {
-      const nowDark = themeToggle.classList.toggle('on');
-      const theme = nowDark ? 'dark' : 'light';
-      try {
-        await apiFetch('/api/me/theme', { method: 'PATCH', body: JSON.stringify({ theme }) });
-        showToast(`Theme: ${theme}`, 'success', 2000);
-        document.documentElement.style.setProperty('--bg', theme === 'light' ? '#f6f8fa' : '#0d1117');
-        document.documentElement.style.setProperty('--text', theme === 'light' ? '#1f2328' : '#e6edf3');
-      } catch { showToast('Failed to update theme', 'error'); }
+        const nowDark = themeToggle.classList.toggle('on');
+        const theme = nowDark ? 'dark' : 'light';
+        try {
+            await apiFetch('/api/me/theme', { method: 'PATCH', body: JSON.stringify({ theme }) });
+            showToast(`Theme: ${theme}`, 'success', 2000);
+            document.documentElement.setAttribute('data-theme', theme);
+        } catch { showToast('Failed to update theme', 'error'); }
     });
-  }
 
   const pubToggle = $('public-toggle');
   if (pubToggle) {

@@ -718,6 +718,17 @@ int main() {
             try { langs = json::parse(stats->languages_json); } catch(...) {}
         }
 
+        // Count total commits from activity_feed
+sqlite3_stmt* cs;
+sqlite3_prepare_v2(db,
+    "SELECT COUNT(*) FROM activity_feed WHERE user_id=?",
+    -1, &cs, nullptr);
+sqlite3_bind_int(cs, 1, user->user_id);
+int total_commits = 0;
+if (sqlite3_step(cs) == SQLITE_ROW)
+    total_commits = sqlite3_column_int(cs, 0);
+sqlite3_finalize(cs);
+
         json acts = json::array();
         for (auto& a : activity) acts.push_back({
             {"repo",       a.repo},
@@ -740,7 +751,7 @@ int main() {
                 {"public",       user->is_public}
             }},
             {"stats", stats ? json{
-                {"total_commits",    stats->total_commits},
+                {"total_commits",    total_commits},
                 {"streak_days",      stats->streak_days},
                 {"best_streak",      stats->best_streak},
                 {"repos_count",      stats->repos_count},
