@@ -147,6 +147,13 @@
               <button class="btn btn-outline btn-sm" data-copy="share-webhook">Copy</button>
             </div>
           </div>
+          <div class="share-row">
+    <label>Webhook Secret <span class="pill" style="font-size:.7rem">keep private</span></label>
+    <div class="copy-row">
+        <input class="copy-input" id="share-webhook-secret" readonly type="password">
+        <button class="btn btn-outline btn-sm" data-copy="share-webhook-secret">Copy</button>
+    </div>
+</div>
         </div>
       </div>
 
@@ -171,6 +178,21 @@
             <div class="toggle" id="public-toggle" role="switch" aria-label="Toggle public" tabindex="0"></div>
           </div>
         </div>
+        <div class="setting-item" style="flex-direction:column;align-items:flex-start;gap:.5rem">
+    <div>
+        <div class="setting-name">Hackatime API Key</div>
+        <div class="setting-desc">Connect to track coding hours automatically</div>
+    </div>
+    <div class="copy-row" style="width:100%">
+        <input class="copy-input" id="hackatime-key" 
+               type="password" placeholder="Paste your Hackatime API key">
+        <button class="btn btn-outline btn-sm" id="hackatime-save">Save</button>
+    </div>
+    <a href="https://hackatime.hackclub.com" target="_blank" 
+       style="font-size:.75rem;color:var(--accent)">
+       Get your key at hackatime.hackclub.com →
+    </a>
+</div>
 
         <div style="margin-top:1.25rem;padding-top:1.25rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end">
           <button id="logout-btn-2" class="btn btn-danger btn-sm">Sign out of DevPulse</button>

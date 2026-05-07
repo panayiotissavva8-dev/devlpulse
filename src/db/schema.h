@@ -25,6 +25,7 @@ inline void initializeDatabase(sqlite3* db) {
         public        INTEGER DEFAULT 1,
         theme         TEXT DEFAULT 'dark',
         webhook_secret TEXT,
+        hackatime_key TEXT,
         created_at    INTEGER NOT NULL
     );)";
 

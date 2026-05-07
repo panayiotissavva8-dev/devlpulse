@@ -186,4 +186,31 @@ inline std::string oauthRedirectUrl(const std::string& client_id,
            "&state="        + state;
 }
 
+// -- fetch hackatime stats ----------------------
+inline void fetchHackatimeStats(sqlite3* db, int user_id, 
+                                  const std::string& api_key) {
+    if (api_key.empty()) return;
+    
+    auto r = cpr::Get(
+        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/current/stats"},
+        cpr::Header{{"Authorization", "Basic " + 
+            cpr::util::urlEncode(api_key + ":")}},
+        cpr::Timeout{5000}
+    );
+    
+    if (r.status_code != 200) return;
+    try {
+        auto j = json::parse(r.text);
+        auto& data = j["data"];
+        double total_seconds = data.value("total_seconds", 0.0);
+        double hours = total_seconds / 3600.0;
+        
+        auto sc = UserService::getStats(db, user_id);
+        if (!sc) return;
+        sc->hours_coded = hours;
+        sc->last_updated = Security::nowSec();
+        UserService::upsertStats(db, user_id, *sc);
+    } catch(...) {}
+}
+
 } // namespace GitHubService

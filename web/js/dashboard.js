@@ -95,6 +95,12 @@ function renderShare(u) {
       if (target) copyText(target.value, btn);
     });
   });
+
+  // Fetch and show webhook secret
+apiFetch('/api/me/webhook-secret').then(d => {
+    const el = $('share-webhook-secret');
+    if (el) el.value = d.webhook_secret;
+});
 }
 
 // ── Settings: theme ───────────────────────────────────────────
@@ -126,6 +132,22 @@ function wireSettings() {
       } catch { showToast('Failed to update visibility', 'error'); pubToggle.classList.toggle('on'); }
     });
   }
+
+ 
+const hackatimeSave = $('hackatime-save');
+if (hackatimeSave) {
+    hackatimeSave.addEventListener('click', async () => {
+        const key = $('hackatime-key').value.trim();
+        if (!key) return;
+        try {
+            await apiFetch('/api/me/hackatime', {
+                method: 'PATCH',
+                body: JSON.stringify({ api_key: key })
+            });
+            showToast('Hackatime connected! Hours will update within 10 min.', 'success', 4000);
+        } catch { showToast('Failed to save key', 'error'); }
+    });
+}
 }
 
 // ── Logout ────────────────────────────────────────────────────

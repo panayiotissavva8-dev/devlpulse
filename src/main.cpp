@@ -395,24 +395,31 @@ void statsRefreshLoop() {
 
         sqlite3_stmt* stmt;
         sqlite3_prepare_v2(db,
-            "SELECT user_id, username FROM users", -1, &stmt, nullptr);
+            "SELECT user_id, username, hackatime_key FROM users",
+            -1, &stmt, nullptr);
 
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             int uid = sqlite3_column_int(stmt, 0);
-            const char* p = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-            if (!p) continue;
-            std::string username(p);
+            const char* p1 = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            const char* p2 = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            if (!p1) continue;
+            std::string username(p1);
+            std::string hackatime_key = p2 ? p2 : "";
 
             auto sc   = GitHubService::fetchUserStats(username);
             auto acts = GitHubService::fetchActivity(username);
 
             auto existing = UserService::getStats(db, uid);
             if (existing) {
-                sc.hours_coded      = existing->hours_coded;
-                sc.hours_this_week  = existing->hours_this_week;
-                sc.streak_days      = existing->streak_days;
-                sc.best_streak      = existing->best_streak;
-                sc.commits_today    = existing->commits_today;
+                sc.hours_coded     = existing->hours_coded;
+                sc.hours_this_week = existing->hours_this_week;
+                sc.streak_days     = existing->streak_days;
+                sc.best_streak     = existing->best_streak;
+                sc.commits_today   = existing->commits_today;
+            }
+
+            if (!hackatime_key.empty()) {
+                GitHubService::fetchHackatimeStats(db, uid, hackatime_key);
             }
 
             UserService::upsertStats(db, uid, sc);
@@ -914,6 +921,48 @@ if (today > last) {
 
         return crow::response(200, "ok");
     });
+
+
+    // API: get webhook secret for logged-in user
+CROW_ROUTE(app, "/api/me/webhook-secret")([](const crow::request& req) {
+    auto uid = authenticate(req);
+    if (!uid) return jsonError(401, "Unauthorized");
+    auto user = UserService::findByUsername(db, "");
+    // find by uid
+    sqlite3_stmt* s;
+    sqlite3_prepare_v2(db,
+        "SELECT webhook_secret FROM users WHERE user_id=?", -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, *uid);
+    std::string secret;
+    if (sqlite3_step(s) == SQLITE_ROW) {
+        auto p = sqlite3_column_text(s, 0);
+        if (p) secret = reinterpret_cast<const char*>(p);
+    }
+    sqlite3_finalize(s);
+    return jsonOk({{"webhook_secret", secret}});
+});
+
+
+   // API: get Hackatime API key
+   CROW_ROUTE(app, "/api/me/hackatime").methods("PATCH"_method)
+([](const crow::request& req) {
+    if (!csrfValid(req)) return jsonError(403, "Invalid CSRF");
+    auto uid = authenticate(req);
+    if (!uid) return jsonError(401, "Unauthorized");
+    try {
+        auto body = json::parse(req.body);
+        std::string key = Security::sanitize(body.value("api_key", ""), 128);
+        sqlite3_stmt* s;
+        sqlite3_prepare_v2(db,
+            "UPDATE users SET hackatime_key=? WHERE user_id=?",
+            -1, &s, nullptr);
+        sqlite3_bind_text(s, 1, key.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(s, 2, *uid);
+        sqlite3_step(s);
+        sqlite3_finalize(s);
+        return jsonOk({{"ok", true}});
+    } catch(...) { return jsonError(400, "Invalid JSON"); }
+});
 
     // ═══════════════════════════════════════════════════════════
     //  WEBSOCKET: /ws/<username>

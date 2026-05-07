@@ -16,6 +16,7 @@ struct User {
     std::string github_url;
     std::string theme;
     std::string webhook_secret;
+    std::string hackatime_key;
     bool        is_public   = true;
     long long   created_at  = 0;
 };
@@ -50,7 +51,7 @@ inline std::optional<User> findByGithubId(sqlite3* db,
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db,
         "SELECT user_id,github_id,username,display_name,avatar_url,bio,"
-        "location,role,github_url,theme,webhook_secret,public,created_at"
+        "location,role,github_url,theme,webhook_secret,hackatime_key,public,created_at"
         " FROM users WHERE github_id=?", -1, &s, nullptr);
     sqlite3_bind_text(s, 1, github_id.c_str(), -1, SQLITE_TRANSIENT);
     std::optional<User> result;
@@ -66,8 +67,8 @@ inline std::optional<User> findByGithubId(sqlite3* db,
         u.bio          = txt(5); u.location    = txt(6);
         u.role         = txt(7); u.github_url  = txt(8);
         u.theme        = txt(9); u.webhook_secret = txt(10);
-        u.is_public    = sqlite3_column_int(s, 11);
-        u.created_at   = sqlite3_column_int64(s, 12);
+        u.is_public    = sqlite3_column_int(s, 12); u.hackatime_key = txt(11);
+        u.created_at   = sqlite3_column_int64(s, 13);
         result = u;
     }
     sqlite3_finalize(s);
@@ -79,7 +80,7 @@ inline std::optional<User> findByUsername(sqlite3* db,
     sqlite3_stmt* s;
     sqlite3_prepare_v2(db,
         "SELECT user_id,github_id,username,display_name,avatar_url,bio,"
-        "location,role,github_url,theme,webhook_secret,public,created_at"
+        "location,role,github_url,theme,webhook_secret,hackatime_key,public,created_at"
         " FROM users WHERE username=?", -1, &s, nullptr);
     sqlite3_bind_text(s, 1, username.c_str(), -1, SQLITE_TRANSIENT);
     std::optional<User> result;
@@ -95,8 +96,8 @@ inline std::optional<User> findByUsername(sqlite3* db,
         u.bio = txt(5); u.location = txt(6);
         u.role = txt(7); u.github_url = txt(8);
         u.theme = txt(9); u.webhook_secret = txt(10);
-        u.is_public = sqlite3_column_int(s, 11);
-        u.created_at = sqlite3_column_int64(s, 12);
+        u.is_public = sqlite3_column_int(s, 12); u.hackatime_key = txt(11);
+        u.created_at = sqlite3_column_int64(s, 13);
         result = u;
     }
     sqlite3_finalize(s);
