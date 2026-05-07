@@ -699,6 +699,10 @@ int main() {
         }
         sqlite3_finalize(s);
 
+        std::cout << "[API/me] uid=" << *uid << " uname='" << uname << "'\n";
+auto user = UserService::findByUsername(db, uname);
+std::cout << "[API/me] findByUsername returned " << (user ? "found" : "null") << "\n";
+
          // Always return own data regardless of public flag
         auto user = UserService::findByUsername(db, uname);
         if (!user) return jsonError(404, "User not found");
