@@ -689,6 +689,7 @@ int main() {
     // ═══════════════════════════════════════════════════════════
     CROW_ROUTE(app, "/api/me")([](const crow::request& req) {
         auto uid = authenticate(req);
+         std::cout << "[API/me] cookie='" << getSessionToken(req) << "' uid=" << (uid ? *uid : -1) << "\n";
         if (!uid) return jsonError(401, "Unauthorized");
 
         sqlite3_stmt* s;
