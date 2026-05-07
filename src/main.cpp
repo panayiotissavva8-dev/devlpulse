@@ -419,7 +419,7 @@ void statsRefreshLoop() {
             }
 
             if (!hackatime_key.empty()) {
-                GitHubService::fetchHackatimeStats(db, uid, hackatime_key);
+                GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
             }
 
             UserService::upsertStats(db, uid, sc);

@@ -187,12 +187,13 @@ inline std::string oauthRedirectUrl(const std::string& client_id,
 }
 
 // -- fetch hackatime stats ----------------------
-inline void fetchHackatimeStats(sqlite3* db, int user_id, 
-                                  const std::string& api_key) {
+inline void fetchHackatimeStats(sqlite3* db, int user_id,
+                                  const std::string& api_key,
+                                  const std::string& username) {
     if (api_key.empty()) return;
     
     auto r = cpr::Get(
-        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/current/stats?features=projects,languages,editors,operating_systems&range=last_7_days"},
+        cpr::Url{"https://hackatime.hackclub.com/api/v1/users/" + username + "/stats"},
         cpr::Header{
             {"Authorization", "Bearer " + api_key},
             {"Accept", "application/json"},
@@ -201,8 +202,7 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         cpr::Timeout{10000}
     );
     
-    std::cout << "[Hackatime] status=" << r.status_code << " body=" << r.text.substr(0, 200) << "\n";
-    
+    std::cout << "[Hackatime] status=" << r.status_code << "\n";
     if (r.status_code != 200) return;
     try {
         auto j = json::parse(r.text);
@@ -215,7 +215,7 @@ inline void fetchHackatimeStats(sqlite3* db, int user_id,
         sc->hours_coded = hours;
         sc->last_updated = Security::nowSec();
         UserService::upsertStats(db, user_id, *sc);
-        std::cout << "[Hackatime] Updated hours=" << hours << " for user_id=" << user_id << "\n";
+        std::cout << "[Hackatime] Updated hours=" << hours << "\n";
     } catch(const std::exception& e) {
         std::cerr << "[Hackatime] Error: " << e.what() << "\n";
     }
