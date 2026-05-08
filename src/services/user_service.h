@@ -362,4 +362,111 @@ inline std::vector<User> searchUsers(sqlite3* db, const std::string& query) {
     return results;
 }
 
+
+inline void recalcStreak(sqlite3* db, int user_id) {
+    // Calculate current streak
+    sqlite3_stmt* s;
+    sqlite3_prepare_v2(db, R"(
+        WITH daily AS (
+            SELECT DATE(pushed_at, 'unixepoch') as day
+            FROM activity_feed WHERE user_id=?
+            GROUP BY day
+        ),
+        numbered AS (
+            SELECT day,
+                   julianday(day) - ROW_NUMBER() OVER (ORDER BY day) as grp
+            FROM daily
+        ),
+        streaks AS (
+            SELECT COUNT(*) as len, MAX(day) as last_day
+            FROM numbered GROUP BY grp
+        )
+        SELECT len FROM streaks
+        ORDER BY last_day DESC LIMIT 1
+    )", -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, user_id);
+    int streak = 0;
+    if (sqlite3_step(s) == SQLITE_ROW) streak = sqlite3_column_int(s, 0);
+    sqlite3_finalize(s);
+
+    // Only count streak if last activity was today or yesterday
+    sqlite3_prepare_v2(db, R"(
+        SELECT DATE(MAX(pushed_at), 'unixepoch') as last_day,
+               DATE('now') as today
+        FROM activity_feed WHERE user_id=?
+    )", -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, user_id);
+    bool active = false;
+    if (sqlite3_step(s) == SQLITE_ROW) {
+        auto p1 = sqlite3_column_text(s, 0);
+        auto p2 = sqlite3_column_text(s, 1);
+        if (p1 && p2) {
+            std::string last = reinterpret_cast<const char*>(p1);
+            std::string today = reinterpret_cast<const char*>(p2);
+            // Check if last activity was today or yesterday
+            sqlite3_stmt* s2;
+            sqlite3_prepare_v2(db,
+                "SELECT julianday(?) - julianday(?)",
+                -1, &s2, nullptr);
+            sqlite3_bind_text(s2, 1, today.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(s2, 2, last.c_str(),  -1, SQLITE_TRANSIENT);
+            if (sqlite3_step(s2) == SQLITE_ROW) {
+                double diff = sqlite3_column_double(s2, 0);
+                active = (diff <= 1.0);
+            }
+            sqlite3_finalize(s2);
+        }
+    }
+    sqlite3_finalize(s);
+    if (!active) streak = 0;
+
+    // Calculate best streak
+    sqlite3_prepare_v2(db, R"(
+        WITH daily AS (
+            SELECT DATE(pushed_at, 'unixepoch') as day
+            FROM activity_feed WHERE user_id=?
+            GROUP BY day
+        ),
+        numbered AS (
+            SELECT day,
+                   julianday(day) - ROW_NUMBER() OVER (ORDER BY day) as grp
+            FROM daily
+        ),
+        streaks AS (
+            SELECT COUNT(*) as len FROM numbered GROUP BY grp
+        )
+        SELECT MAX(len) FROM streaks
+    )", -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, user_id);
+    int best = 0;
+    if (sqlite3_step(s) == SQLITE_ROW) best = sqlite3_column_int(s, 0);
+    sqlite3_finalize(s);
+
+    // Count total commits and commits today
+    sqlite3_prepare_v2(db,
+        "SELECT COUNT(*) FROM activity_feed WHERE user_id=?",
+        -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, user_id);
+    int total = 0;
+    if (sqlite3_step(s) == SQLITE_ROW) total = sqlite3_column_int(s, 0);
+    sqlite3_finalize(s);
+
+    sqlite3_prepare_v2(db,
+        "SELECT COUNT(*) FROM activity_feed WHERE user_id=? AND DATE(pushed_at,'unixepoch')=DATE('now')",
+        -1, &s, nullptr);
+    sqlite3_bind_int(s, 1, user_id);
+    int today_commits = 0;
+    if (sqlite3_step(s) == SQLITE_ROW) today_commits = sqlite3_column_int(s, 0);
+    sqlite3_finalize(s);
+
+    // Update stats
+    auto sc = getStats(db, user_id);
+    if (!sc) return;
+    sc->streak_days    = streak;
+    sc->best_streak    = std::max(best, sc->best_streak);
+    sc->total_commits  = total;
+    sc->commits_today  = today_commits;
+    upsertStats(db, user_id, *sc);
+}
+
 } // namespace UserService

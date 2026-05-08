@@ -431,7 +431,10 @@ void statsRefreshLoop() {
             if (!hackatime_key.empty())
                 GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
 
-            std::cout << "[Refresh] Updated: " << username << "\n";
+
+                UserService::recalcStreak(db, uid);
+
+            // std::cout << "[Refresh] Updated: " << username << "\n";
         }
         sqlite3_finalize(stmt);
     }
@@ -828,15 +831,58 @@ sqlite3_finalize(cs);
     // ═══════════════════════════════════════════════════════════
     //  API: /api/profile/<username>
     // ═══════════════════════════════════════════════════════════
-    CROW_ROUTE(app, "/api/profile/<string>")([](const crow::request& req,
-                                                 const std::string& username) {
-        crow::response res(200);
-        if (rateLimited(req, res, 120, 60)) return res;
-        if (!Security::isValidUsername(username)) return jsonError(400, "Invalid username");
-        auto profile = buildProfileJson(Security::sanitize(username, 39));
-        if (!profile) return jsonError(404, "User not found or private");
-        return jsonOk(*profile);
+    CROW_ROUTE(app, "/api/profile/<string>")([](const std::string& username) {
+    auto user = UserService::findByUsername(db, username);
+    if (!user) return jsonError(404, "User not found");
+
+    if (!user->is_public) {
+        return jsonOk({
+            {"public", false},
+            {"user", {{"display_name", user->display_name}, {"username", user->username}}}
+        });
+    }
+
+    auto stats    = UserService::getStats(db, user->user_id);
+    auto activity = UserService::getActivity(db, user->user_id, 100); // more for heatmap
+
+    json langs = json::array();
+    if (stats && !stats->languages_json.empty()) {
+        try { langs = json::parse(stats->languages_json); } catch(...) {}
+    }
+
+    json acts = json::array();
+    for (auto& a : activity) acts.push_back({
+        {"repo",      a.repo},
+        {"message",   a.message},
+        {"pushed_at", a.pushed_at}
     });
+
+    return jsonOk({
+        {"public", true},
+        {"user", {
+            {"username",     user->username},
+            {"display_name", user->display_name},
+            {"avatar_url",   user->avatar_url},
+            {"bio",          user->bio},
+            {"location",     user->location},
+            {"role",         user->role},
+            {"github_url",   user->github_url}
+        }},
+        {"stats", stats ? json{
+            {"hours_coded",     stats->hours_coded},
+            {"hours_this_week", stats->hours_this_week},
+            {"total_commits",   stats->total_commits},
+            {"commits_today",   stats->commits_today},
+            {"streak_days",     stats->streak_days},
+            {"best_streak",     stats->best_streak},
+            {"repos_count",     stats->repos_count},
+            {"repos_this_month",stats->repos_this_month},
+            {"top_language",    stats->top_language}
+        } : json(nullptr)},
+        {"languages", langs},
+        {"activity",  acts}
+    });
+});
 
     // ═══════════════════════════════════════════════════════════
     //  API: /api/stats/<username>
@@ -1113,6 +1159,8 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
         if (!hackatime_key.empty())
             GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
     }).detach();
+
+    UserService::recalcStreak(db, uid);
     
     return jsonOk({{"ok", true}, {"message", "Refresh started"}});
 });

@@ -1,154 +1,436 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DevPulse Profile</title>
+  <title id="page-title">DevPulse Profile</title>
   <link rel="stylesheet" href="/web/css/main.css">
+  <style>
+    .profile-page { max-width: 860px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── Top nav ── */
+    .profile-topnav {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; gap: 1rem;
+      padding: .75rem 1.5rem;
+      background: rgba(13,17,23,.92); backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .profile-topnav-logo { font-size: 1.1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+    .profile-topnav-actions { margin-left: auto; display: flex; gap: .5rem; align-items: center; }
+
+    /* ── Hero card ── */
+    .profile-hero {
+      background: linear-gradient(135deg, var(--bg-1) 0%, rgba(99,102,241,.08) 100%);
+      border: 1px solid var(--border); border-radius: var(--r-lg);
+      padding: 2rem; margin-bottom: 1.25rem;
+      display: flex; gap: 1.75rem; align-items: flex-start;
+      position: relative; overflow: hidden;
+    }
+    .profile-hero::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    }
+    .profile-hero-avatar { position: relative; flex-shrink: 0; }
+    .profile-hero-avatar img {
+      width: 100px; height: 100px; border-radius: 50%;
+      border: 3px solid var(--accent); object-fit: cover;
+    }
+    .profile-hero-avatar .online-dot {
+      position: absolute; bottom: 4px; right: 4px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green); border: 3px solid var(--bg-1);
+      animation: pulse-dot 2s infinite;
+    }
+    .profile-hero-info { flex: 1; min-width: 0; }
+    .profile-hero-name { font-size: 1.75rem; font-weight: 800; line-height: 1.2; margin-bottom: .2rem; }
+    .profile-hero-handle { font-size: .95rem; color: var(--text-2); margin-bottom: .6rem; }
+    .profile-hero-bio { font-size: .9rem; color: var(--text-2); margin-bottom: 1rem; max-width: 500px; }
+    .profile-hero-meta { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .profile-hero-actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+
+    /* ── Stats row ── */
+    .profile-stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 1rem; margin-bottom: 1.25rem;
+    }
+    @media (max-width: 600px) { .profile-stats-row { grid-template-columns: repeat(2, 1fr); } }
+
+    /* ── Content grid ── */
+    .profile-grid {
+      display: grid; grid-template-columns: 1fr 300px;
+      gap: 1.25rem;
+    }
+    @media (max-width: 760px) { .profile-grid { grid-template-columns: 1fr; } }
+
+    /* ── Contribution heatmap ── */
+    .heatmap-wrap { overflow-x: auto; }
+    .heatmap {
+      display: grid;
+      grid-template-columns: repeat(53, 1fr);
+      gap: 3px; min-width: 600px;
+    }
+    .heatmap-cell {
+      width: 100%; aspect-ratio: 1;
+      border-radius: 2px;
+      background: var(--bg-2);
+      transition: transform .1s;
+    }
+    .heatmap-cell:hover { transform: scale(1.3); }
+    .heatmap-cell.l1 { background: rgba(99,102,241,.25); }
+    .heatmap-cell.l2 { background: rgba(99,102,241,.5); }
+    .heatmap-cell.l3 { background: rgba(99,102,241,.75); }
+    .heatmap-cell.l4 { background: var(--accent); }
+    .heatmap-months {
+      display: flex; justify-content: space-between;
+      font-size: .7rem; color: var(--text-3);
+      margin-bottom: .35rem; min-width: 600px;
+      padding: 0 1px;
+    }
+
+    /* ── Top projects ── */
+    .project-list { display: flex; flex-direction: column; gap: .6rem; }
+    .project-item {
+      display: flex; align-items: center; gap: .75rem;
+      padding: .6rem .85rem;
+      background: var(--bg-2); border-radius: var(--r);
+    }
+    .project-name { font-size: .875rem; font-weight: 600; flex: 1; }
+    .project-hours { font-size: .8rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
+    .project-bar-wrap { width: 80px; height: 4px; background: var(--bg-1); border-radius: 99px; overflow: hidden; }
+    .project-bar { height: 100%; background: var(--accent); border-radius: 99px; }
+
+    /* ── Language donut ── */
+    .lang-donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+    .lang-donut-legend { width: 100%; display: flex; flex-direction: column; gap: .5rem; }
+    .lang-legend-item { display: flex; align-items: center; gap: .6rem; font-size: .82rem; }
+    .lang-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .lang-legend-name { flex: 1; }
+    .lang-legend-pct { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+    /* ── Viewers badge ── */
+    .viewers-pill {
+      display: inline-flex; align-items: center; gap: .4rem;
+      font-size: .75rem; color: var(--text-2);
+      padding: .2rem .65rem;
+      background: var(--bg-2); border: 1px solid var(--border);
+      border-radius: 99px;
+    }
+
+    /* ── Private profile ── */
+    .private-wall {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; min-height: 60vh; text-align: center; gap: 1rem;
+    }
+    .private-wall .lock { font-size: 3rem; }
+    .private-wall h2 { font-size: 1.5rem; font-weight: 700; }
+    .private-wall p { color: var(--text-2); max-width: 340px; }
+
+    @media (max-width: 640px) {
+      .profile-hero { flex-direction: column; align-items: center; text-align: center; }
+      .profile-hero-meta { justify-content: center; }
+      .profile-hero-actions { justify-content: center; }
+      .profile-hero-avatar img { width: 80px; height: 80px; }
+      .profile-hero-name { font-size: 1.4rem; }
+    }
+  </style>
 </head>
 <body>
-  <div id="toast-container"></div>
 
-  <!-- Page loader -->
-  <div id="page-loader">
-    <div class="spinner"></div>
+<nav class="profile-topnav">
+  <a class="profile-topnav-logo" href="/">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="6" fill="#6366f1"/>
+      <path d="M6 18V10M10 18V6M14 18V12M18 18V8" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>
+    DevPulse
+  </a>
+  <div class="profile-topnav-actions">
+    <span class="viewers-pill" id="viewers-pill" style="display:none">
+      <span class="live-dot" style="width:6px;height:6px"></span>
+      <span id="viewers-count">1</span> viewing
+    </span>
+    <a href="/leaderboard" class="btn btn-ghost btn-sm">🏆 Leaderboard</a>
+    <a href="/dashboard" class="btn btn-outline btn-sm" id="dash-link" style="display:none">Dashboard</a>
   </div>
+</nav>
 
-  <!-- 404 state (hidden by default) -->
-  <div id="profile-404" class="page-404 hidden">
-    <div class="code-404">404</div>
-    <h2>Profile not found</h2>
-    <p>This profile is private or doesn't exist.</p>
-    <a href="/" class="btn btn-primary">Go home</a>
-  </div>
+<div id="profile-root" style="min-height:60vh;display:flex;align-items:center;justify-content:center">
+  <div class="spinner"></div>
+</div>
 
-  <!-- Error state -->
-  <div id="profile-error" class="error-banner hidden" style="margin:2rem auto;max-width:480px"></div>
+<script src="/web/js/api.js"></script>
+<script>
+const username = location.pathname.split('/u/')[1]?.split('/')[0];
 
-  <!-- Content (hidden until loaded) -->
-  <div id="profile-content" class="hidden">
+const LANG_COLORS = {
+  'C++':'#f34b7d','JavaScript':'#f1e05a','Python':'#3572A5',
+  'TypeScript':'#3178c6','Rust':'#dea584','Go':'#00ADD8',
+  'HTML':'#e34c26','CSS':'#663399','Java':'#b07219',
+  'C':'#555555','Shell':'#89e051','Swift':'#ffac45',
+  'Kotlin':'#A97BFF','Ruby':'#701516','PHP':'#4F5D95',
+  'JSON':'#292929','CMake':'#DA3434','Docker':'#384d54',
+};
 
-    <div class="profile-layout">
+function fmtHours(h) {
+  if (!h) return '0h';
+  return h >= 100 ? Math.round(h) + 'h' : h.toFixed(1) + 'h';
+}
+function timeAgo(ts) {
+  const diff = Math.floor(Date.now()/1000) - ts;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
 
-      <!-- Back -->
-      <a href="/" class="profile-back">
-        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        DevPulse
-      </a>
+function buildHeatmap(activity) {
+  // Build day map from activity
+  const dayMap = {};
+  activity.forEach(a => {
+    const d = new Date(a.pushed_at * 1000);
+    const key = d.toISOString().split('T')[0];
+    dayMap[key] = (dayMap[key] || 0) + 1;
+  });
 
-      <!-- ── Profile header ── -->
-      <div class="profile-header">
-        <div class="profile-avatar-wrap">
-          <img id="pf-avatar" class="avatar" width="88" height="88" src="" alt="avatar">
-          <div class="profile-online"></div>
+  const cells = [];
+  const months = [];
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - 364);
+
+  // Pad to start of week
+  const startDay = start.getDay();
+  for (let i = 0; i < startDay; i++) cells.push(null);
+
+  let lastMonth = -1;
+  for (let d = new Date(start); d <= now; d.setDate(d.getDate() + 1)) {
+    const key = d.toISOString().split('T')[0];
+    const count = dayMap[key] || 0;
+    cells.push({ key, count });
+    if (d.getMonth() !== lastMonth) {
+      months.push(d.toLocaleString('default', { month: 'short' }));
+      lastMonth = d.getMonth();
+    }
+  }
+
+  const maxCount = Math.max(...Object.values(dayMap), 1);
+  const cellsHtml = cells.map(c => {
+    if (!c) return `<div></div>`;
+    const ratio = c.count / maxCount;
+    const lvl = ratio === 0 ? '' : ratio < .25 ? 'l1' : ratio < .5 ? 'l2' : ratio < .75 ? 'l3' : 'l4';
+    const title = c.count ? `${c.count} commit${c.count>1?'s':''} on ${c.key}` : c.key;
+    return `<div class="heatmap-cell ${lvl}" title="${title}"></div>`;
+  }).join('');
+
+  return `
+    <div class="heatmap-months">${months.map(m => `<span>${m}</span>`).join('')}</div>
+    <div class="heatmap-wrap"><div class="heatmap">${cellsHtml}</div></div>`;
+}
+
+function buildDonut(langs) {
+  if (!langs.length) return '<p class="text-2 text-sm">No language data</p>';
+  const size = 120;
+  const r = 45; const cx = 60; const cy = 60;
+  const circ = 2 * Math.PI * r;
+  let offset = 0;
+  const top = langs.slice(0, 8);
+  const total = top.reduce((s, l) => s + (l.percentage || l.bytes || 0), 0);
+
+  const slices = top.map(l => {
+    const pct = (l.percentage || l.bytes || 0) / total;
+    const dash = pct * circ;
+    const slice = `<circle cx="${cx}" cy="${cy}" r="${r}"
+      fill="none" stroke="${LANG_COLORS[l.name] || '#888'}"
+      stroke-width="18"
+      stroke-dasharray="${dash} ${circ - dash}"
+      stroke-dashoffset="${-offset}"
+      transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += dash;
+    return slice;
+  });
+
+  const legend = top.map(l => {
+    const pct = ((l.percentage || (l.bytes / total * 100)) || 0).toFixed(1);
+    return `<div class="lang-legend-item">
+      <div class="lang-legend-dot" style="background:${LANG_COLORS[l.name]||'#888'}"></div>
+      <span class="lang-legend-name">${l.name}</span>
+      <span class="lang-legend-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  return `<div class="lang-donut-wrap">
+    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      ${slices.join('')}
+    </svg>
+    <div class="lang-donut-legend">${legend}</div>
+  </div>`;
+}
+
+async function load() {
+  try {
+    const res = await fetch(`/api/profile/${username}`);
+    if (res.status === 404) {
+      document.getElementById('profile-root').innerHTML = `
+        <div class="private-wall">
+          <div class="lock">🔒</div>
+          <h2>Profile not found</h2>
+          <p>This user doesn't exist or hasn't joined DevPulse yet.</p>
+          <a href="/" class="btn btn-primary">Go Home</a>
+        </div>`;
+      return;
+    }
+    const data = await res.json();
+    if (!data.user) return;
+
+    if (!data.public) {
+      document.getElementById('profile-root').innerHTML = `
+        <div class="private-wall">
+          <div class="lock">🔒</div>
+          <h2>Private Profile</h2>
+          <p>${data.user.display_name || data.user.username} hasn't made their profile public yet.</p>
+          <a href="/" class="btn btn-outline">Go Home</a>
+        </div>`;
+      return;
+    }
+
+    const u = data.user;
+    const s = data.stats || {};
+    const langs = data.languages || [];
+    const acts = data.activity || [];
+    const projects = data.projects || [];
+
+    document.title = `${u.display_name || u.username} – DevPulse`;
+
+    // Check if viewing own profile
+    try {
+      const me = await apiFetch('/api/me');
+      if (me.user.username === u.username) {
+        document.getElementById('dash-link').style.display = '';
+      }
+    } catch {}
+
+    const activityHtml = acts.length ? acts.map(a => `
+      <div class="activity-item">
+        <div class="activity-dot"></div>
+        <div class="activity-body">
+          <div class="activity-repo"><a href="https://github.com/${a.repo}" target="_blank">${a.repo}</a></div>
+          <div class="activity-msg">${a.message || 'No message'}</div>
         </div>
-        <div class="profile-info">
-          <div class="profile-name" id="pf-name">Loading…</div>
-          <div style="margin-bottom:.5rem">
-            <a id="pf-username" class="profile-username" href="#" target="_blank" rel="noopener"></a>
+        <div class="activity-time">${timeAgo(a.pushed_at)}</div>
+      </div>`) .join('') :
+      '<p class="text-2 text-sm" style="padding:.5rem 0">No recent activity</p>';
+
+    const projectsHtml = projects.length ? `
+      <div class="card" style="margin-top:1.25rem">
+        <div class="card-header"><span class="card-title">Top Projects</span></div>
+        <div class="project-list">
+          ${projects.slice(0,5).map(p => {
+            const maxH = projects[0]?.hours || 1;
+            const pct = Math.round((p.hours / maxH) * 100);
+            return `<div class="project-item">
+              <div class="project-name">${p.name}</div>
+              <div class="project-bar-wrap"><div class="project-bar" style="width:${pct}%"></div></div>
+              <div class="project-hours">${fmtHours(p.hours)}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    document.getElementById('profile-root').innerHTML = `
+      <div class="profile-page">
+
+        <!-- Hero -->
+        <div class="profile-hero">
+          <div class="profile-hero-avatar">
+            <img src="${u.avatar_url}" alt="${u.username}">
+            <div class="online-dot"></div>
           </div>
-          <p class="profile-bio" id="pf-bio"></p>
-          <div class="profile-meta">
-            <span class="pill" id="pf-location" style="display:none"></span>
-            <span class="pill pill-blue" id="pf-role" style="display:none"></span>
-            <span class="viewers-badge" id="viewer-count-wrap">
-              <span class="live-dot" style="width:6px;height:6px"></span>
-              <span id="viewer-count">— viewers</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── Stats ── -->
-      <div class="profile-stats-grid">
-        <div class="stat-card accent-indigo">
-          <div class="stat-label">Total commits</div>
-          <div class="stat-value count-anim" id="ps-commits">—</div>
-        </div>
-        <div class="stat-card accent-green">
-          <div class="stat-label">Streak</div>
-          <div class="stat-value count-anim" id="ps-streak">—</div>
-          <div class="stat-sub" id="ps-streak-sub"></div>
-        </div>
-        <div class="stat-card accent-blue">
-          <div class="stat-label">Repos</div>
-          <div class="stat-value count-anim" id="ps-repos">—</div>
-          <div class="stat-sub" id="ps-repos-sub"></div>
-        </div>
-        <div class="stat-card accent-yellow">
-          <div class="stat-label">Hours coded</div>
-          <div class="stat-value count-anim" id="ps-hours">—</div>
-          <div class="stat-sub" id="ps-hours-sub"></div>
-        </div>
-      </div>
-
-      <!-- ── Activity + Languages ── -->
-      <div class="profile-cols">
-        <!-- Activity -->
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">Recent activity</span>
-            <span class="pill pill-green"><span class="live-dot" style="width:6px;height:6px"></span> Live</span>
-          </div>
-          <div class="activity-list" id="pf-activity">
-            <div style="display:flex;flex-direction:column;gap:1rem;padding:.5rem 0">
-              <div class="skeleton" style="height:14px;width:75%"></div>
-              <div class="skeleton" style="height:14px;width:90%"></div>
-              <div class="skeleton" style="height:14px;width:65%"></div>
+          <div class="profile-hero-info">
+            <div class="profile-hero-name">${u.display_name || u.username}</div>
+            <div class="profile-hero-handle">@${u.username}</div>
+            ${u.bio ? `<div class="profile-hero-bio">${u.bio}</div>` : ''}
+            <div class="profile-hero-meta">
+              ${u.location ? `<span class="pill">📍 ${u.location}</span>` : ''}
+              ${u.role ? `<span class="pill pill-blue">${u.role}</span>` : ''}
+              ${s.top_language ? `<span class="pill" style="background:${LANG_COLORS[s.top_language]||'#888'}22;color:${LANG_COLORS[s.top_language]||'#888'};border-color:${LANG_COLORS[s.top_language]||'#888'}44">${s.top_language}</span>` : ''}
+              ${s.streak_days > 0 ? `<span class="pill pill-green">🔥 ${s.streak_days}d streak</span>` : ''}
+            </div>
+            <div class="profile-hero-actions">
+              <a href="https://github.com/${u.username}" target="_blank" class="btn btn-outline btn-sm">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                GitHub
+              </a>
+              <a href="${location.origin}/badge/${u.username}" target="_blank" class="btn btn-ghost btn-sm">🏷 Badge</a>
             </div>
           </div>
         </div>
 
-        <!-- Right column -->
-        <div style="display:flex;flex-direction:column;gap:1.25rem">
-          <!-- Languages -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Languages</span>
+        <!-- Stats row -->
+        <div class="profile-stats-row">
+          <div class="stat-card accent-yellow">
+            <div class="stat-label">Hours Coded</div>
+            <div class="stat-value">${fmtHours(s.hours_coded)}</div>
+            <div class="stat-sub">${(s.hours_this_week||0).toFixed(1)}h this week</div>
+          </div>
+          <div class="stat-card accent-indigo">
+            <div class="stat-label">Commits</div>
+            <div class="stat-value">${s.total_commits || 0}</div>
+            <div class="stat-sub">${s.commits_today || 0} today</div>
+          </div>
+          <div class="stat-card accent-green">
+            <div class="stat-label">Streak</div>
+            <div class="stat-value">${s.streak_days || 0}d</div>
+            <div class="stat-sub">Best: ${s.best_streak || 0}d</div>
+          </div>
+          <div class="stat-card accent-blue">
+            <div class="stat-label">Repos</div>
+            <div class="stat-value">${s.repos_count || 0}</div>
+            <div class="stat-sub">${s.repos_this_month || 0} this month</div>
+          </div>
+        </div>
+
+        <!-- Main grid -->
+        <div class="profile-grid">
+          <!-- Left: activity + heatmap -->
+          <div>
+            <div class="card" style="margin-bottom:1.25rem">
+              <div class="card-header"><span class="card-title">Contribution Activity</span></div>
+              ${buildHeatmap(acts)}
             </div>
-            <div id="pf-langs">
-              <div style="display:flex;flex-direction:column;gap:.75rem">
-                <div class="skeleton" style="height:12px"></div>
-                <div class="skeleton" style="height:12px;width:80%"></div>
-                <div class="skeleton" style="height:12px;width:60%"></div>
-              </div>
+            <div class="card">
+              <div class="card-header"><span class="card-title">Recent Activity</span></div>
+              <div class="activity-list">${activityHtml}</div>
             </div>
+            ${projectsHtml}
           </div>
 
-          <!-- Embed this profile -->
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Embed</span>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:.75rem">
-              <div>
-                <div style="font-size:.75rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Badge (Markdown)</div>
-                <div class="copy-row">
-                  <input class="copy-input" id="share-readme-md" readonly>
-                  <button class="btn btn-outline btn-sm" data-copy="share-readme-md">Copy</button>
-                </div>
-              </div>
-              <div>
-                <div style="font-size:.75rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem">Badge image URL</div>
-                <div class="copy-row">
-                  <input class="copy-input" id="share-badge-url" readonly>
-                  <button class="btn btn-outline btn-sm" data-copy="share-badge-url">Copy</button>
-                </div>
-              </div>
+          <!-- Right: languages -->
+          <div>
+            <div class="card">
+              <div class="card-header"><span class="card-title">Languages</span></div>
+              ${buildDonut(langs)}
             </div>
           </div>
         </div>
-      </div>
 
-    </div>
-  </div>
+      </div>`;
 
-  <script src="/web/js/api.js"></script>
-  <script src="/web/js/profile.js"></script>
-  <script>
-    // Show hidden elements properly after JS loads content
-    document.getElementById('pf-location')?.style.removeProperty('display');
-    document.getElementById('pf-role')?.style.removeProperty('display');
-  </script>
+    // Show viewers pill
+    document.getElementById('viewers-pill').style.display = '';
+
+  } catch(e) {
+    console.error(e);
+    document.getElementById('profile-root').innerHTML = `
+      <div class="private-wall">
+        <div class="lock">⚠️</div>
+        <h2>Something went wrong</h2>
+        <p>Could not load this profile.</p>
+      </div>`;
+  }
+}
+
+load();
+</script>
 </body>
 </html>
