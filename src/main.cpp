@@ -1158,7 +1158,7 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
         // Hackatime overwrites hours last
         if (!hackatime_key.empty())
             GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
-            UserService::recalcStreak(db, *uid);
+            UserService::recalcStreak(db, uid);
     }).detach();
     
     return jsonOk({{"ok", true}, {"message", "Refresh started"}});

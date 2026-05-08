@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard – DevPulse</title>
+    <link rel="stylesheet" href="/web/css/main.css">
+    <style>
+        .lb-layout { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+        .lb-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem; }
+        .lb-header h1 { font-size: 1.75rem; font-weight: 700; }
+        .lb-tabs { display: flex; gap: .5rem; margin-bottom: 1.5rem; }
+        .lb-tab {
+            padding: .4rem 1rem; border-radius: var(--r);
+            font-size: .875rem; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--border); background: transparent;
+            color: var(--text-2); transition: all .15s;
+        }
+        .lb-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .lb-table { display: flex; flex-direction: column; gap: .5rem; }
+        .lb-row {
+            display: grid;
+            grid-template-columns: 48px 1fr 120px 120px 100px;
+            align-items: center; gap: 1rem;
+            background: var(--bg-1); border: 1px solid var(--border);
+            border-radius: var(--r-lg); padding: .85rem 1.25rem;
+            transition: border-color .15s;
+            text-decoration: none; color: var(--text);
+        }
+        .lb-row:hover { border-color: var(--accent); }
+        .lb-row.top-1 { border-color: #ffd700; background: rgba(255,215,0,.05); }
+        .lb-row.top-2 { border-color: #c0c0c0; background: rgba(192,192,192,.05); }
+        .lb-row.top-3 { border-color: #cd7f32; background: rgba(205,127,50,.05); }
+        .lb-rank { font-size: 1.1rem; font-weight: 800; color: var(--text-3); text-align: center; }
+        .lb-rank.gold   { color: #ffd700; }
+        .lb-rank.silver { color: #c0c0c0; }
+        .lb-rank.bronze { color: #cd7f32; }
+        .lb-user { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+        .lb-user img { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; }
+        .lb-user .name { font-weight: 600; font-size: .9rem; }
+        .lb-user .handle { font-size: .75rem; color: var(--text-2); }
+        .lb-stat { text-align: right; }
+        .lb-stat .val { font-size: 1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .lb-stat .lbl { font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; }
+        .lb-lang { display: flex; justify-content: flex-end; }
+        .lb-lang .pill { font-size: .75rem; }
+        .lb-nav {
+            display: flex; align-items: center; gap: .75rem;
+            padding: .75rem 1.5rem;
+            background: rgba(13,17,23,.9); backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border);
+            position: sticky; top: 0; z-index: 50;
+        }
+        .lb-nav-logo { font-size: 1.1rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: .5rem; }
+        .lb-nav a { font-size: .875rem; color: var(--text-2); margin-left: auto; }
+        .lb-nav a:hover { color: var(--text); }
+        .lb-empty { text-align: center; padding: 4rem; color: var(--text-2); }
+        @media (max-width: 600px) {
+            .lb-row { grid-template-columns: 40px 1fr 80px; }
+            .lb-row .lb-stat:nth-child(4), .lb-row .lb-lang { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="lb-nav">
+        <a class="lb-nav-logo" href="/">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+            DevPulse
+        </a>
+        <a href="/dashboard">← Dashboard</a>
+    </nav>
+
+    <div class="lb-layout">
+        <div class="lb-header">
+            <h1>🏆 Leaderboard</h1>
+            <span class="text-2 text-sm" id="lb-count"></span>
+        </div>
+
+        <div class="lb-tabs">
+            <button class="lb-tab active" data-sort="hours">⏱ Hours Coded</button>
+            <button class="lb-tab" data-sort="commits">📦 Commits</button>
+            <button class="lb-tab" data-sort="streak">🔥 Streak</button>
+            <button class="lb-tab" data-sort="repos">📁 Repos</button>
+        </div>
+
+        <div class="lb-table" id="lb-table">
+            <div class="lb-empty">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        let _users = [];
+        let _sort = 'hours';
+
+        async function loadLeaderboard() {
+            const res = await fetch('/api/leaderboard');
+            const data = await res.json();
+            _users = data.users || [];
+            document.getElementById('lb-count').textContent = `${_users.length} developers`;
+            render();
+        }
+
+        function render() {
+            const sorted = [..._users].sort((a, b) => {
+                if (_sort === 'hours')   return b.hours_coded - a.hours_coded;
+                if (_sort === 'commits') return b.total_commits - a.total_commits;
+                if (_sort === 'streak')  return b.streak_days - a.streak_days;
+                if (_sort === 'repos')   return b.repos_count - a.repos_count;
+                return 0;
+            });
+
+            const table = document.getElementById('lb-table');
+            if (!sorted.length) {
+                table.innerHTML = '<div class="lb-empty">No public profiles yet. Be the first!</div>';
+                return;
+            }
+
+            table.innerHTML = sorted.map((u, i) => {
+                const rank = i + 1;
+                const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+                const rowClass = rank <= 3 ? `top-${rank}` : '';
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                const hours = u.hours_coded ? u.hours_coded.toFixed(1) + 'h' : '0h';
+                const langColor = langColors[u.top_language] || '#888';
+
+                return `<a class="lb-row ${rowClass}" href="/u/${u.username}">
+                    <div class="lb-rank ${rankClass}">${medal}</div>
+                    <div class="lb-user">
+                        <img src="${u.avatar_url || ''}" alt="" onerror="this.style.display='none'">
+                        <div>
+                            <div class="name">${u.display_name || u.username}</div>
+                            <div class="handle">@${u.username}</div>
+                        </div>
+                    </div>
+                    <div class="lb-stat">
+                        <div class="val">${hours}</div>
+                        <div class="lbl">Hours</div>
+                    </div>
+                    <div class="lb-stat">
+                        <div class="val">${u.streak_days || 0}d</div>
+                        <div class="lbl">Streak</div>
+                    </div>
+                    <div class="lb-lang">
+                        ${u.top_language ? `<span class="pill" style="background:${langColor}22;color:${langColor};border-color:${langColor}44">${u.top_language}</span>` : ''}
+                    </div>
+                </a>`;
+            }).join('');
+        }
+
+        const langColors = {
+            'C++': '#f34b7d', 'JavaScript': '#f1e05a', 'Python': '#3572A5',
+            'TypeScript': '#3178c6', 'Rust': '#dea584', 'Go': '#00ADD8',
+            'HTML': '#e34c26', 'CSS': '#663399', 'Java': '#b07219',
+            'C': '#555555', 'Shell': '#89e051', 'Swift': '#ffac45',
+            'Kotlin': '#A97BFF', 'Ruby': '#701516', 'PHP': '#4F5D95',
+        };
+
+        document.querySelectorAll('.lb-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.lb-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                _sort = tab.dataset.sort;
+                render();
+            });
+        });
+
+        loadLeaderboard();
+    </script>
+</body>
+</html>
