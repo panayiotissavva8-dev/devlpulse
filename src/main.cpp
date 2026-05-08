@@ -1087,6 +1087,90 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
 });
 
 
+CROW_ROUTE(app, "/leaderboard")([](const crow::request& req) {
+    crow::response res(200);
+    res.add_header("Content-Type", "text/html");
+    std::ifstream f("web/html/leaderboard.html");
+    res.body = std::string(std::istreambuf_iterator<char>(f), {});
+    return res;
+});
+
+CROW_ROUTE(app, "/api/leaderboard")([](const crow::request& req) {
+    sqlite3_stmt* s;
+    sqlite3_prepare_v2(db, R"(
+        SELECT u.username, u.display_name, u.avatar_url, u.role,
+               sc.hours_coded, sc.total_commits, sc.streak_days,
+               sc.top_language, sc.repos_count
+        FROM users u
+        LEFT JOIN stats_cache sc ON u.user_id = sc.user_id
+        WHERE u.public = 1 AND u.username != 'hackclub-demo'
+        ORDER BY sc.hours_coded DESC
+        LIMIT 50
+    )", -1, &s, nullptr);
+
+    json arr = json::array();
+    int rank = 1;
+    while (sqlite3_step(s) == SQLITE_ROW) {
+        auto txt = [&](int col) -> std::string {
+            auto p = sqlite3_column_text(s, col);
+            return p ? reinterpret_cast<const char*>(p) : "";
+        };
+        arr.push_back({
+            {"rank",          rank++},
+            {"username",      txt(0)},
+            {"display_name",  txt(1)},
+            {"avatar_url",    txt(2)},
+            {"role",          txt(3)},
+            {"hours_coded",   sqlite3_column_double(s, 4)},
+            {"total_commits", sqlite3_column_int(s, 5)},
+            {"streak_days",   sqlite3_column_int(s, 6)},
+            {"top_language",  txt(7)},
+            {"repos_count",   sqlite3_column_int(s, 8)}
+        });
+    }
+    sqlite3_finalize(s);
+    return jsonOk({{"users", arr}});
+});
+
+CROW_ROUTE(app, "/api/me/profile").methods("PATCH"_method)([](const crow::request& req) {
+    auto uid = authenticate(req);
+    if (!uid) return jsonError(401, "Unauthorized");
+    try {
+        auto body = json::parse(req.body);
+        std::string name = body.value("display_name", "");
+        std::string bio  = body.value("bio", "");
+        std::string role = body.value("role", "");
+        name = Security::sanitize(name, 100);
+        bio  = Security::sanitize(bio, 300);
+        role = Security::sanitize(role, 50);
+        sqlite3_stmt* s;
+        sqlite3_prepare_v2(db,
+            "UPDATE users SET display_name=?, bio=?, role=? WHERE user_id=?",
+            -1, &s, nullptr);
+        sqlite3_bind_text(s, 1, name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(s, 2, bio.c_str(),  -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(s, 3, role.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int(s, 4, *uid);
+        sqlite3_step(s);
+        sqlite3_finalize(s);
+        return jsonOk({{"ok", true}});
+    } catch (...) { return jsonError(400, "Invalid request"); }
+});
+
+
+CROW_ROUTE(app, "/settings")([](const crow::request& req) {
+    auto uid = authenticate(req);
+    if (!uid) {
+        crow::response res(302);
+        res.add_header("Location", "/");
+        return res;
+    }
+    crow::response res(200);
+    res.add_header("Content-Type", "text/html");
+    std::ifstream f("web/html/settings.html");
+    res.body = std::string(std::istreambuf_iterator<char>(f), {});
+    return res;
+});
 
 
     // ═══════════════════════════════════════════════════════════
