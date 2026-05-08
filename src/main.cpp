@@ -432,7 +432,7 @@ void statsRefreshLoop() {
                 GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
 
 
-                UserService::recalcStreak(db, *uid);
+                UserService::recalcStreak(db, uid);
 
             // std::cout << "[Refresh] Updated: " << username << "\n";
         }
@@ -1158,9 +1158,8 @@ CROW_ROUTE(app, "/admin/refresh")([](const crow::request& req) {
         // Hackatime overwrites hours last
         if (!hackatime_key.empty())
             GitHubService::fetchHackatimeStats(db, uid, hackatime_key, username);
+            UserService::recalcStreak(db, *uid);
     }).detach();
-
-    UserService::recalcStreak(db, *uid);
     
     return jsonOk({{"ok", true}, {"message", "Refresh started"}});
 });
