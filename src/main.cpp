@@ -38,6 +38,9 @@ sqlite3* db = nullptr;
 std::unordered_map<void*, std::string> ws_conn_map;
 std::mutex ws_conn_mutex;
 
+static std::unordered_map<std::string, std::string> auth_codes;
+static std::mutex auth_codes_mutex;
+
 // ═══════════════════════════════════════════════════════════════
 //  HELPER: Load env
 // ═══════════════════════════════════════════════════════════════
@@ -544,27 +547,44 @@ int main() {
     });
 
    CROW_ROUTE(app, "/auth/landing")([](const crow::request& req) {
-    std::string token = req.url_params.get("token") 
-                        ? req.url_params.get("token") : "";
-    if (token.size() != 64) {
+    std::string code = req.url_params.get("code")
+                       ? req.url_params.get("code") : "";
+    if (code.empty()) {
         crow::response res(302);
-        res.add_header("Location", "/?error=invalid_token");
+        res.add_header("Location", "/?error=invalid_code");
         return res;
     }
+
+    std::string token;
+    {
+        std::lock_guard<std::mutex> lock(auth_codes_mutex);
+        auto it = auth_codes.find(code);
+        if (it != auth_codes.end()) {
+            token = it->second;
+            auth_codes.erase(it); // one-time use
+        }
+    }
+
+    if (token.empty()) {
+        crow::response res(302);
+        res.add_header("Location", "/?error=invalid_code");
+        return res;
+    }
+
     auto uid = UserService::validateSession(db, token);
     if (!uid) {
         crow::response res(302);
         res.add_header("Location", "/?error=invalid_session");
         return res;
     }
+
     crow::response res(200);
     res.add_header("Content-Type", "text/html");
-    res.add_header("Set-Cookie", 
-        "dp_session=" + token + 
+    res.add_header("Set-Cookie",
+        "dp_session=" + token +
         "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400");
     res.body = R"(<!DOCTYPE html><html><head></head><body>
         <script>window.location.replace('/dashboard');</script>
-        <noscript><a href="/dashboard">Click here</a></noscript>
         </body></html>)";
     return res;
 });
@@ -664,14 +684,25 @@ int main() {
                 : req.get_header_value("X-Forwarded-For")).substr(0, 16);
         std::string token = UserService::createSession(db, uid, ip_hash);
 
-        std::cout << "[Auth] Token created: '" << token << "' length=" << token.size() << "\n";
+      //  std::cout << "[Auth] Token created: '" << token << "' length=" << token.size() << "\n";
 
-        crow::response res(302);
-        setSessionCookie(res, token);
-        res.add_header("Set-Cookie",
-            "dp_oauth_state=; Path=/; HttpOnly; Max-Age=0");
-        res.add_header("Location", "/auth/landing?token=" + token);
-        return res;
+        // Generate one-time code instead of exposing real token in URL
+std::string code_key = Security::generateToken(16);
+{
+    std::lock_guard<std::mutex> lock(auth_codes_mutex);
+    auth_codes[code_key] = token;
+}
+std::thread([code_key]() {
+    std::this_thread::sleep_for(std::chrono::seconds(30));
+    std::lock_guard<std::mutex> lock(auth_codes_mutex);
+    auth_codes.erase(code_key);
+}).detach();
+
+crow::response res(302);
+res.add_header("Set-Cookie",
+    "dp_oauth_state=; Path=/; HttpOnly; Max-Age=0");
+res.add_header("Location", "/auth/landing?code=" + code_key);
+return res;
     });
 
     CROW_ROUTE(app, "/auth/logout").methods("POST"_method)
